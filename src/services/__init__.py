@@ -1,14 +1,18 @@
 """
-Core Services for ZeroRAG.
+ZeroRAG Services Module
 
-This package contains the core business logic services:
-- document_processor: Document processing and chunking
-- vector_store: Vector database operations
-- rag_pipeline: RAG pipeline orchestration
+This module provides service integration and factory patterns for the ZeroRAG system.
 """
 
-from .document_processor import DocumentProcessor
-from .vector_store import VectorStore
-from .rag_pipeline import RAGPipeline
+from .service_factory import ServiceFactory
+from .health_monitor import HealthMonitor
+from .document_processor import DocumentProcessor, DocumentChunk, DocumentMetadata, get_document_processor
 
-__all__ = ["DocumentProcessor", "VectorStore", "RAGPipeline"]
+__all__ = [
+    'ServiceFactory',
+    'HealthMonitor',
+    'DocumentProcessor',
+    'DocumentChunk', 
+    'DocumentMetadata',
+    'get_document_processor'
+]

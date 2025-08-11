@@ -58,7 +58,7 @@ class AIModelConfig(BaseSettings):
     ollama_temperature: float = Field(default=0.7, env="OLLAMA_TEMPERATURE")
     
     # HuggingFace Fallback Configuration
-    hf_model_name: str = Field(default="TheBloke/Llama-3.2-1B-Chat-GGUF", env="HF_MODEL_NAME")
+    hf_model_name: str = Field(default="microsoft/DialoGPT-small", env="HF_MODEL_NAME")
     hf_model_file: str = Field(default="llama-3.2-1b-chat.Q4_K_M.gguf", env="HF_MODEL_FILE")
     hf_device: str = Field(default="cpu", env="HF_DEVICE")
     hf_max_length: int = Field(default=2048, env="HF_MAX_LENGTH")
