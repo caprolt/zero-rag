@@ -16,6 +16,8 @@ from config import get_config
 from models.embeddings import EmbeddingService
 from models.llm import LLMService, LLMProvider
 from .document_processor import DocumentProcessor
+from .vector_store import VectorStoreService
+from .rag_pipeline import RAGPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,8 @@ class ServiceFactory:
         self.embedding_service: Optional[EmbeddingService] = None
         self.llm_service: Optional[LLMService] = None
         self.document_processor: Optional[DocumentProcessor] = None
+        self.vector_store: Optional[VectorStoreService] = None
+        self.rag_pipeline: Optional[RAGPipeline] = None
         
         # Service status tracking
         self.services: Dict[str, ServiceInfo] = {}
@@ -86,6 +90,12 @@ class ServiceFactory:
         
         # Initialize document processor
         self._initialize_document_processor()
+        
+        # Initialize vector store
+        self._initialize_vector_store()
+        
+        # Initialize RAG pipeline
+        self._initialize_rag_pipeline()
         
         # Perform initial health check
         self._perform_health_check()
@@ -188,6 +198,70 @@ class ServiceFactory:
                 initialization_time=None
             )
     
+    def _initialize_vector_store(self):
+        """Initialize the vector store service."""
+        try:
+            logger.info("Initializing vector store service...")
+            start_time = time.time()
+            
+            self.vector_store = VectorStoreService()
+            init_time = time.time() - start_time
+            
+            # Register service
+            self.services["vector_store"] = ServiceInfo(
+                name="vector_store",
+                status=ServiceStatus.INITIALIZING,
+                health_data={},
+                last_check=time.time(),
+                error_count=0,
+                initialization_time=init_time
+            )
+            
+            logger.info(f"Vector store service initialized successfully in {init_time:.2f}s")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize vector store service: {e}")
+            self.services["vector_store"] = ServiceInfo(
+                name="vector_store",
+                status=ServiceStatus.ERROR,
+                health_data={"error": str(e)},
+                last_check=time.time(),
+                error_count=1,
+                initialization_time=None
+            )
+    
+    def _initialize_rag_pipeline(self):
+        """Initialize the RAG pipeline service."""
+        try:
+            logger.info("Initializing RAG pipeline...")
+            start_time = time.time()
+            
+            self.rag_pipeline = RAGPipeline(self)
+            init_time = time.time() - start_time
+            
+            # Register service
+            self.services["rag_pipeline"] = ServiceInfo(
+                name="rag_pipeline",
+                status=ServiceStatus.INITIALIZING,
+                health_data={},
+                last_check=time.time(),
+                error_count=0,
+                initialization_time=init_time
+            )
+            
+            logger.info(f"RAG pipeline initialized successfully in {init_time:.2f}s")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG pipeline: {e}")
+            self.services["rag_pipeline"] = ServiceInfo(
+                name="rag_pipeline",
+                status=ServiceStatus.ERROR,
+                health_data={"error": str(e)},
+                last_check=time.time(),
+                error_count=1,
+                initialization_time=None
+            )
+    
     def _perform_health_check(self):
         """Perform health check on all services."""
         with self.health_check_lock:
@@ -261,6 +335,52 @@ class ServiceFactory:
                     self.services["document_processor"].health_data = {"error": str(e)}
                     self.services["document_processor"].error_count += 1
                     self.services["document_processor"].last_check = time.time()
+            
+            # Check vector store
+            if self.vector_store:
+                try:
+                    health = self.vector_store.get_health_status()
+                    self.services["vector_store"].health_data = health
+                    self.services["vector_store"].status = (
+                        ServiceStatus.HEALTHY if health.get("status") == "healthy" 
+                        else ServiceStatus.UNHEALTHY
+                    )
+                    self.services["vector_store"].last_check = time.time()
+                    
+                    if self.services["vector_store"].status == ServiceStatus.HEALTHY:
+                        logger.info("Vector store is healthy")
+                    else:
+                        logger.warning(f"Vector store is unhealthy: {health}")
+                        
+                except Exception as e:
+                    logger.error(f"Vector store health check failed: {e}")
+                    self.services["vector_store"].status = ServiceStatus.ERROR
+                    self.services["vector_store"].health_data = {"error": str(e)}
+                    self.services["vector_store"].error_count += 1
+                    self.services["vector_store"].last_check = time.time()
+            
+            # Check RAG pipeline
+            if self.rag_pipeline:
+                try:
+                    health = self.rag_pipeline.health_check()
+                    self.services["rag_pipeline"].health_data = health
+                    self.services["rag_pipeline"].status = (
+                        ServiceStatus.HEALTHY if health.get("status") == "healthy" 
+                        else ServiceStatus.UNHEALTHY
+                    )
+                    self.services["rag_pipeline"].last_check = time.time()
+                    
+                    if self.services["rag_pipeline"].status == ServiceStatus.HEALTHY:
+                        logger.info("RAG pipeline is healthy")
+                    else:
+                        logger.warning(f"RAG pipeline is unhealthy: {health}")
+                        
+                except Exception as e:
+                    logger.error(f"RAG pipeline health check failed: {e}")
+                    self.services["rag_pipeline"].status = ServiceStatus.ERROR
+                    self.services["rag_pipeline"].health_data = {"error": str(e)}
+                    self.services["rag_pipeline"].error_count += 1
+                    self.services["rag_pipeline"].last_check = time.time()
     
     def get_embedding_service(self) -> Optional[EmbeddingService]:
         """Get the embedding service if available and healthy."""
@@ -281,6 +401,20 @@ class ServiceFactory:
         if (self.document_processor and 
             self.services.get("document_processor", {}).status == ServiceStatus.HEALTHY):
             return self.document_processor
+        return None
+    
+    def get_vector_store(self) -> Optional[VectorStoreService]:
+        """Get the vector store service if available and healthy."""
+        if (self.vector_store and 
+            self.services.get("vector_store", {}).status == ServiceStatus.HEALTHY):
+            return self.vector_store
+        return None
+    
+    def get_rag_pipeline(self) -> Optional[RAGPipeline]:
+        """Get the RAG pipeline service if available and healthy."""
+        if (self.rag_pipeline and 
+            self.services.get("rag_pipeline", {}).status == ServiceStatus.HEALTHY):
+            return self.rag_pipeline
         return None
     
     def get_service_status(self, service_name: str) -> Optional[ServiceInfo]:

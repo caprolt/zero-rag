@@ -1,6 +1,8 @@
-Name,Age,City,Occupation
-John Doe,30,New York,Engineer
-Jane Smith,25,Los Angeles,Designer
-Bob Johnson,35,Chicago,Manager
-Alice Brown,28,Boston,Developer
-Charlie Wilson,32,Seattle,Analyst
+Name,Age,City,Occupation,Salary,StartDate,IsActive
+John Doe,30,New York,Engineer,75000.50,2020-01-15,true
+Jane Smith,25,Los Angeles,Designer,65000.00,2019-06-20,true
+Bob Johnson,35,Chicago,Manager,85000.75,2018-03-10,false
+Alice Brown,28,Boston,Developer,70000.25,2021-02-28,true
+Charlie Wilson,32,Seattle,Analyst,68000.00,2020-11-05,true
+Diana Davis,29,Miami,Designer,62000.50,2021-08-12,true
+Eve Miller,31,Austin,Engineer,78000.00,2019-12-01,false
