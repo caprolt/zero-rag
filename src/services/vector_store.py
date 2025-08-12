@@ -133,7 +133,10 @@ class VectorStoreService:
     
     def __init__(self, config=None):
         """Initialize the vector store service."""
-        from config import get_config
+        try:
+            from ..config import get_config
+        except ImportError:
+            from config import get_config
         self.config = config or get_config()
         
         # Qdrant client

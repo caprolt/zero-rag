@@ -116,7 +116,7 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
 7. **Start the application**
    ```bash
    # Start the API server
-   python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+   python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
    
    # In another terminal, start the UI
    streamlit run src/ui/streamlit_app.py
@@ -179,7 +179,7 @@ OLLAMA_MODEL=llama3.2:1b
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
 
 # API settings
-API_HOST=0.0.0.0
+API_HOST=127.0.0.1
 API_PORT=8000
 ```
 

@@ -87,7 +87,7 @@ class AIModelConfig(BaseSettings):
 class APIConfig(BaseSettings):
     """API configuration settings."""
     
-    host: str = Field(default="0.0.0.0", env="API_HOST")
+    host: str = Field(default="127.0.0.1", env="API_HOST")
     port: int = Field(default=8000, env="API_PORT")
     workers: int = Field(default=1, env="API_WORKERS")
     reload: bool = Field(default=True, env="API_RELOAD")

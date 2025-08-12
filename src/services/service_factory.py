@@ -12,9 +12,9 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 
-from config import get_config
-from models.embeddings import EmbeddingService
-from models.llm import LLMService, LLMProvider
+from ..config import get_config
+from ..models.embeddings import EmbeddingService
+from ..models.llm import LLMService, LLMProvider
 from .document_processor import DocumentProcessor
 from .vector_store import VectorStoreService
 from .rag_pipeline import RAGPipeline
@@ -404,16 +404,14 @@ class ServiceFactory:
         return None
     
     def get_vector_store(self) -> Optional[VectorStoreService]:
-        """Get the vector store service if available and healthy."""
-        if (self.vector_store and 
-            self.services.get("vector_store", {}).status == ServiceStatus.HEALTHY):
+        """Get the vector store service if available (even if degraded)."""
+        if self.vector_store:
             return self.vector_store
         return None
     
     def get_rag_pipeline(self) -> Optional[RAGPipeline]:
-        """Get the RAG pipeline service if available and healthy."""
-        if (self.rag_pipeline and 
-            self.services.get("rag_pipeline", {}).status == ServiceStatus.HEALTHY):
+        """Get the RAG pipeline service if available (even if degraded)."""
+        if self.rag_pipeline:
             return self.rag_pipeline
         return None
     

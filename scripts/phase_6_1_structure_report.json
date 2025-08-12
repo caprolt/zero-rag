@@ -1,0 +1,65 @@
+{
+  "total_tests": 8,
+  "passed": 2,
+  "failed": 6,
+  "success_rate": 0.25,
+  "test_results": [
+    {
+      "test": "Configuration",
+      "status": "PASS",
+      "details": "API config loaded: 0.0.0.0:8000",
+      "duration": 1.0251998901367188e-05,
+      "timestamp": 1754963245.5007372
+    },
+    {
+      "test": "API Import",
+      "status": "ERROR",
+      "details": "attempted relative import beyond top-level package",
+      "duration": 0.0,
+      "timestamp": 1754963246.0061934
+    },
+    {
+      "test": "API Routes",
+      "status": "ERROR",
+      "details": "No module named 'src'",
+      "duration": 0.0,
+      "timestamp": 1754963246.0075104
+    },
+    {
+      "test": "API Models",
+      "status": "ERROR",
+      "details": "attempted relative import beyond top-level package",
+      "duration": 0.0,
+      "timestamp": 1754963246.0136862
+    },
+    {
+      "test": "API Routes Import",
+      "status": "ERROR",
+      "details": "attempted relative import beyond top-level package",
+      "duration": 0.0,
+      "timestamp": 1754963246.0160885
+    },
+    {
+      "test": "Service Integration",
+      "status": "ERROR",
+      "details": "attempted relative import beyond top-level package",
+      "duration": 0.0,
+      "timestamp": 1754963246.0173569
+    },
+    {
+      "test": "CORS Configuration",
+      "status": "PASS",
+      "details": "CORS enabled: True",
+      "duration": 7.3909759521484375e-06,
+      "timestamp": 1754963246.017643
+    },
+    {
+      "test": "Error Handlers",
+      "status": "ERROR",
+      "details": "attempted relative import beyond top-level package",
+      "duration": 0.0,
+      "timestamp": 1754963246.020871
+    }
+  ],
+  "phase_status": "FAILED"
+}

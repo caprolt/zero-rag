@@ -74,7 +74,7 @@ Controls the FastAPI server settings and security.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `API_HOST` | `0.0.0.0` | API server host |
+| `API_HOST` | `127.0.0.1` | API server host |
 | `API_PORT` | `8000` | API server port |
 | `API_WORKERS` | `1` | Number of worker processes |
 | `API_RELOAD` | `true` | Enable auto-reload for development |
@@ -211,7 +211,7 @@ When running in Docker containers:
 
 ```bash
 # Docker settings
-API_HOST=0.0.0.0
+API_HOST=127.0.0.1
 QDRANT_HOST=qdrant
 REDIS_HOST=redis
 OLLAMA_HOST=http://ollama:11434

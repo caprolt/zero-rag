@@ -1,14 +1,15 @@
+# Windows-compatible requirements for ZeroRAG
 # Core web framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 streamlit==1.28.1
 
-# AI and ML libraries
+# AI and ML libraries (Windows-compatible versions)
 sentence-transformers==2.2.2
 transformers==4.35.2
-torch>=2.0.0
-numpy>=1.21.0
-pandas>=1.5.0
+# Note: Install torch separately with: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+numpy>=1.21.0,<2.0.0
+pandas>=1.5.0,<3.0.0
 
 # Vector database
 qdrant-client==1.7.0

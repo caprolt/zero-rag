@@ -103,7 +103,7 @@ class TestAPIConfig:
         """Test default API configuration values."""
         config = APIConfig()
         
-        assert config.host == "0.0.0.0"
+        assert config.host == "127.0.0.1"
         assert config.port == 8000
         assert config.workers == 1
         assert config.reload is True
