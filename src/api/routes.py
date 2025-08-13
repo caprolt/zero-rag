@@ -151,8 +151,19 @@ async def upload_document(
         # Create upload progress tracker
         await upload_tracker.create_upload(document_id, file.filename, file.size)
         
-        # Save file
-        upload_path = Path(config.storage.upload_dir) / f"{document_id}_{file.filename}"
+        # Save file with original filename (no UUID prefix)
+        # Handle filename conflicts by appending a number if file already exists
+        base_path = Path(config.storage.upload_dir) / file.filename
+        upload_path = base_path
+        counter = 1
+        
+        while upload_path.exists():
+            # Split filename and extension
+            stem = base_path.stem
+            suffix = base_path.suffix
+            upload_path = base_path.parent / f"{stem}_{counter}{suffix}"
+            counter += 1
+        
         upload_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(upload_path, "wb") as buffer:

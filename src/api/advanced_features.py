@@ -447,15 +447,22 @@ class CleanupManager:
         """Clean up a specific document."""
         freed_space = 0
         
-        # Find files related to this document
-        for file_path in self.upload_dir.glob(f"{document_id}*"):
-            if file_path.is_file():
-                freed_space += await self._cleanup_file(file_path, dry_run)
-        
-        # Clean up processed files
-        for file_path in self.processed_dir.glob(f"{document_id}*"):
-            if file_path.is_file():
-                freed_space += await self._cleanup_file(file_path, dry_run)
+        # Get the upload progress to find the filename
+        upload_progress = await self.get_progress(document_id)
+        if upload_progress and upload_progress.filename:
+            # Look for files with the original filename (and potential number suffixes)
+            filename_stem = Path(upload_progress.filename).stem
+            filename_suffix = Path(upload_progress.filename).suffix
+            
+            # Find files in upload directory
+            for file_path in self.upload_dir.glob(f"{filename_stem}*{filename_suffix}"):
+                if file_path.is_file():
+                    freed_space += await self._cleanup_file(file_path, dry_run)
+            
+            # Find files in processed directory
+            for file_path in self.processed_dir.glob(f"{filename_stem}*{filename_suffix}"):
+                if file_path.is_file():
+                    freed_space += await self._cleanup_file(file_path, dry_run)
         
         return freed_space
     
