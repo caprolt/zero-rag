@@ -12,9 +12,14 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 
-from ..config import get_config
-from ..models.embeddings import EmbeddingService
-from ..models.llm import LLMService, LLMProvider
+try:
+    from ..config import get_config
+    from ..models.embeddings import EmbeddingService
+    from ..models.llm import LLMService, LLMProvider
+except ImportError:
+    from config import get_config
+    from models.embeddings import EmbeddingService
+    from models.llm import LLMService, LLMProvider
 from .document_processor import DocumentProcessor
 from .vector_store import VectorStoreService
 from .rag_pipeline import RAGPipeline

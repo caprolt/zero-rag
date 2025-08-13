@@ -144,9 +144,7 @@ class VectorStoreService:
         self.collection_name = self.config.database.qdrant_collection_name
         self.vector_size = self.config.database.qdrant_vector_size
         
-        # Fallback in-memory storage for testing
-        self._in_memory_storage: Dict[str, VectorDocument] = {}
-        self._use_fallback = False
+
         
         # Performance tracking
         self.total_operations = 0
@@ -164,12 +162,12 @@ class VectorStoreService:
         self.queue_worker_thread = None
         self.queue_running = False
         self.max_queue_size = 1000
-        self.batch_size = 100  # Default batch size for queued operations
+        self.batch_size = self.config.api.batch_size  # Use configured batch size
         
         # Phase 4.3 Enhancements: Memory Management
-        self.memory_threshold_mb = 500  # Memory threshold for cleanup
+        self.memory_threshold_mb = self.config.api.memory_threshold_mb
         self.last_gc_time = 0
-        self.gc_interval = 300  # 5 minutes
+        self.gc_interval = self.config.api.gc_interval_seconds
         self._memory_monitor_thread = None
         self._memory_monitor_running = False
         
@@ -178,7 +176,7 @@ class VectorStoreService:
         self.alert_callbacks: List[Callable] = []
         self.performance_thresholds = {
             'operation_time_ms': 1000,  # 1 second
-            'memory_usage_mb': 800,     # 800 MB
+            'memory_usage_mb': self.config.api.memory_critical_threshold_mb,
             'queue_size': 500,          # 500 items
             'error_rate': 0.05          # 5% error rate
         }
@@ -314,11 +312,16 @@ class VectorStoreService:
     
     def _memory_monitor(self):
         """Background memory monitoring thread."""
+        consecutive_critical_alerts = 0
+        last_cleanup_time = 0
+        cleanup_cooldown = 60  # Minimum seconds between cleanups
+        
         while self._memory_monitor_running:
             try:
                 # Get current memory usage
                 memory_info = self._get_memory_usage()
                 current_memory_mb = memory_info.get("rss_mb", 0)
+                current_time = time.time()
                 
                 # Store in history
                 self.memory_usage_history.append({
@@ -327,19 +330,79 @@ class VectorStoreService:
                     "memory_percent": memory_info.get("percent", 0)
                 })
                 
-                # Check memory threshold
+                # Enhanced memory monitoring with multiple thresholds and cooldown
                 if current_memory_mb > self.performance_thresholds['memory_usage_mb']:
-                    self._create_performance_alert(
-                        "memory_usage",
-                        f"Memory usage high: {current_memory_mb:.1f}MB",
-                        "high"
-                    )
+                    # Critical memory usage
+                    consecutive_critical_alerts += 1
                     
-                    # Trigger cleanup
-                    self._trigger_memory_cleanup()
+                    # Only trigger cleanup if enough time has passed since last cleanup
+                    if current_time - last_cleanup_time > cleanup_cooldown:
+                        self._create_performance_alert(
+                            "memory_usage",
+                            f"Memory usage critical: {current_memory_mb:.1f}MB (Alert #{consecutive_critical_alerts})",
+                            "critical"
+                        )
+                        # Immediate aggressive cleanup
+                        self._trigger_aggressive_memory_cleanup()
+                        last_cleanup_time = current_time
+                        
+                        # If we've had multiple critical alerts, increase cooldown
+                        if consecutive_critical_alerts > 3:
+                            cleanup_cooldown = min(cleanup_cooldown * 1.5, 300)  # Max 5 minutes
+                    else:
+                        logger.debug(f"Memory critical but cleanup on cooldown: {current_memory_mb:.1f}MB")
+                        
+                elif current_memory_mb > self.memory_threshold_mb:
+                    # High memory usage
+                    consecutive_critical_alerts = 0  # Reset counter
+                    cleanup_cooldown = 60  # Reset cooldown
+                    
+                    if current_time - last_cleanup_time > cleanup_cooldown:
+                        self._create_performance_alert(
+                            "memory_usage",
+                            f"Memory usage high: {current_memory_mb:.1f}MB",
+                            "high"
+                        )
+                        # Trigger standard cleanup
+                        self._trigger_memory_cleanup()
+                        last_cleanup_time = current_time
+                        
+                elif current_memory_mb > self.memory_threshold_mb * 0.8:
+                    # Approaching threshold - preventive cleanup
+                    consecutive_critical_alerts = 0  # Reset counter
+                    cleanup_cooldown = 60  # Reset cooldown
+                    
+                    if current_time - last_cleanup_time > cleanup_cooldown * 2:  # Less frequent for preventive
+                        self._create_performance_alert(
+                            "memory_usage",
+                            f"Memory usage approaching threshold: {current_memory_mb:.1f}MB",
+                            "medium"
+                        )
+                        # Light cleanup
+                        self._trigger_light_memory_cleanup()
+                        last_cleanup_time = current_time
+                else:
+                    # Memory usage is normal
+                    consecutive_critical_alerts = 0
+                    cleanup_cooldown = 60
+                
+                # Check for memory leaks (gradual increase over time)
+                if len(self.memory_usage_history) > 10:
+                    recent_memory = [entry["memory_mb"] for entry in self.memory_usage_history[-10:]]
+                    if len(recent_memory) >= 10:
+                        # Check if memory is consistently increasing
+                        if all(recent_memory[i] <= recent_memory[i+1] for i in range(len(recent_memory)-1)):
+                            if recent_memory[-1] - recent_memory[0] > 200:  # 200MB increase
+                                self._create_performance_alert(
+                                    "memory_leak",
+                                    f"Potential memory leak detected: {recent_memory[-1] - recent_memory[0]:.1f}MB increase over 10 checks",
+                                    "high"
+                                )
+                                # Force aggressive cleanup for potential leak
+                                self._trigger_aggressive_memory_cleanup()
+                                last_cleanup_time = current_time
                 
                 # Check if garbage collection is needed
-                current_time = time.time()
                 if current_time - self.last_gc_time > self.gc_interval:
                     gc.collect()
                     self.last_gc_time = current_time
@@ -352,7 +415,7 @@ class VectorStoreService:
                 time.sleep(60)  # Longer sleep on error
     
     def _trigger_memory_cleanup(self):
-        """Trigger memory cleanup operations."""
+        """Trigger standard memory cleanup operations."""
         try:
             # Add cleanup operation to queue
             cleanup_item = OperationQueueItem(
@@ -367,6 +430,106 @@ class VectorStoreService:
             
         except Exception as e:
             logger.error(f"Error triggering memory cleanup: {e}")
+    
+    def _trigger_light_memory_cleanup(self):
+        """Trigger light memory cleanup operations."""
+        try:
+            # Immediate light cleanup without queuing
+            self._perform_light_cleanup()
+            logger.info("Light memory cleanup performed")
+            
+        except Exception as e:
+            logger.error(f"Error triggering light memory cleanup: {e}")
+    
+    def _trigger_aggressive_memory_cleanup(self):
+        """Trigger aggressive memory cleanup operations."""
+        try:
+            # Immediate aggressive cleanup
+            self._perform_aggressive_cleanup()
+            logger.info("Aggressive memory cleanup performed")
+            
+            # Also queue a standard cleanup for additional safety
+            cleanup_item = OperationQueueItem(
+                operation_type="collection_cleanup",
+                data=None,
+                priority=1,  # High priority
+                callback=None
+            )
+            self.operation_queue.put(cleanup_item)
+            
+        except Exception as e:
+            logger.error(f"Error triggering aggressive memory cleanup: {e}")
+    
+    def _perform_light_cleanup(self):
+        """Perform light memory cleanup."""
+        try:
+            # Force garbage collection
+            gc.collect()
+            
+            # Clear old memory history entries
+            if len(self.memory_usage_history) > self.max_history_size:
+                self.memory_usage_history = self.memory_usage_history[-self.max_history_size//2:]
+            
+            # Clear old performance alerts
+            if len(self.performance_alerts) > 25:
+                self.performance_alerts = self.performance_alerts[-25:]
+                
+        except Exception as e:
+            logger.error(f"Error in light cleanup: {e}")
+    
+    def _perform_aggressive_cleanup(self):
+        """Perform aggressive memory cleanup."""
+        try:
+            # Multiple garbage collection passes with different generations
+            for generation in range(3):
+                collected = gc.collect(generation)
+                logger.debug(f"GC generation {generation}: collected {collected} objects")
+            
+            # Clear most memory history
+            if len(self.memory_usage_history) > 10:
+                self.memory_usage_history = self.memory_usage_history[-10:]
+            
+            # Clear most performance alerts
+            if len(self.performance_alerts) > 10:
+                self.performance_alerts = self.performance_alerts[-10:]
+            
+            # Clear operation time history for old operations
+            current_time = time.time()
+            for operation in list(self.operation_times.keys()):
+                if len(self.operation_times[operation]) > 100:
+                    # Keep only recent times
+                    self.operation_times[operation] = self.operation_times[operation][-50:]
+            
+            # Clear operation counters if they're too large
+            for counter in list(self.operation_counters.keys()):
+                if self.operation_counters[counter] > 10000:
+                    self.operation_counters[counter] = 1000  # Reset to reasonable value
+            
+            # Clear error counters if they're too large
+            for counter in list(self.error_counters.keys()):
+                if self.error_counters[counter] > 1000:
+                    self.error_counters[counter] = 100  # Reset to reasonable value
+            
+            # Force memory release
+            import sys
+            if hasattr(sys, 'exc_clear'):
+                sys.exc_clear()
+            
+            # Clear any cached data in the client
+            if hasattr(self.client, '_session') and hasattr(self.client._session, 'cache'):
+                self.client._session.cache.clear()
+            
+            # Force Python to release memory back to OS
+            try:
+                import ctypes
+                libc = ctypes.CDLL("libc.so.6")
+                libc.malloc_trim(0)
+            except (OSError, AttributeError):
+                # Not available on Windows or other systems
+                pass
+                
+        except Exception as e:
+            logger.error(f"Error in aggressive cleanup: {e}")
     
     def _create_performance_alert(self, alert_type: str, message: str, severity: str, metrics: Dict[str, Any] = None):
         """Create a performance alert."""
@@ -495,9 +658,7 @@ class VectorStoreService:
         except Exception as e:
             logger.error(f"Failed to initialize Qdrant connection: {e}")
             self.is_connected = False
-            self._use_fallback = True
-            logger.warning("Vector store will operate in degraded mode with in-memory storage")
-            # Don't raise the exception to allow graceful degradation
+            raise Exception(f"Qdrant connection failed: {e}. Please ensure Qdrant is running and accessible.")
     
     def _test_connection(self):
         """Test Qdrant connection."""
@@ -609,13 +770,7 @@ class VectorStoreService:
         
         # Skip if checked recently
         if current_time - self.last_health_check < self.health_check_interval:
-            return self.is_connected or self._use_fallback
-        
-        # If using fallback mode, consider it healthy
-        if self._use_fallback:
-            self.is_connected = False  # Not connected to Qdrant
-            self.last_health_check = current_time
-            return True
+            return self.is_connected
         
         try:
             # Test connection
@@ -690,13 +845,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Use in-memory storage
-                self._in_memory_storage[document.id] = document
-                self._track_operation("insert_document", start_time)
-                logger.debug(f"Document inserted to memory: {document.id}")
-                return True
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -750,18 +898,6 @@ class VectorStoreService:
         }
         
         try:
-            if self._use_fallback:
-                # Use in-memory storage for batch insert
-                for doc in documents:
-                    self._in_memory_storage[doc.id] = doc
-                
-                results["successful"] = len(documents)
-                results["processing_time"] = time.time() - start_time
-                results["memory_usage"] = self._get_memory_usage()
-                self._track_operation("insert_documents_batch", start_time)
-                logger.info(f"Batch insert to memory completed: {len(documents)} documents")
-                return results
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -805,9 +941,20 @@ class VectorStoreService:
                         chunk_num = (i // chunk_size) + 1
                         logger.debug(f"Batch chunk {chunk_num}/{total_chunks} completed: {len(chunk)} documents in {chunk_time:.3f}s")
                     
-                    # Memory management: force GC after large chunks
-                    if len(chunk) > 50:
+                    # Enhanced memory management: force GC after chunks and check memory
+                    if len(chunk) > 25:  # Reduced threshold for more frequent cleanup
                         gc.collect()
+                        
+                        # Check memory usage after large chunks
+                        memory_info = self._get_memory_usage()
+                        current_memory_mb = memory_info.get("rss_mb", 0)
+                        
+                        if current_memory_mb > self.memory_threshold_mb * 0.9:
+                            logger.warning(f"Memory usage high after chunk {chunk_num}: {current_memory_mb:.1f}MB")
+                            self._perform_light_cleanup()
+                    
+                    # Clear points list to free memory
+                    points.clear()
                     
                 except Exception as e:
                     results["failed"] += len(chunk)
@@ -859,37 +1006,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Simple in-memory search with cosine similarity
-                results = []
-                for doc_id, doc in self._in_memory_storage.items():
-                    # Apply filters if provided
-                    if filters:
-                        if not self._apply_filters(doc, filters):
-                            continue
-                    
-                    # Calculate cosine similarity
-                    similarity = self._cosine_similarity(query_vector, doc.vector)
-                    
-                    if similarity >= score_threshold:
-                        search_result = SearchResult(
-                            id=doc.id,
-                            text=doc.text,
-                            score=similarity,
-                            metadata=doc.metadata,
-                            source_file=doc.source_file,
-                            chunk_index=doc.chunk_index
-                        )
-                        results.append(search_result)
-                
-                # Sort by score and limit results
-                results.sort(key=lambda x: x.score, reverse=True)
-                results = results[:top_k]
-                
-                self._track_operation("search_similar", start_time)
-                logger.debug(f"In-memory search completed: {len(results)} results")
-                return results
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -932,7 +1048,14 @@ class VectorStoreService:
         conditions = []
         
         for key, value in filters.items():
-            if key == "source_file":
+            if key == "document_ids":
+                # Filter by document IDs - use the document_id field in metadata
+                if isinstance(value, list):
+                    conditions.append(FieldCondition(key="metadata.document_id", match=MatchAny(any=value)))
+                else:
+                    conditions.append(FieldCondition(key="metadata.document_id", match=MatchValue(value=value)))
+            
+            elif key == "source_file":
                 if isinstance(value, list):
                     conditions.append(FieldCondition(key=key, match=MatchAny(any=value)))
                 else:
@@ -975,12 +1098,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Use in-memory storage
-                document = self._in_memory_storage.get(document_id)
-                self._track_operation("get_document", start_time)
-                return document
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -1052,15 +1169,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Use in-memory storage
-                if document_id in self._in_memory_storage:
-                    del self._in_memory_storage[document_id]
-                    self._track_operation("delete_document", start_time)
-                    logger.debug(f"Document deleted from memory: {document_id}")
-                    return True
-                return False
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -1136,29 +1244,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Calculate stats from in-memory storage
-                total_points = len(self._in_memory_storage)
-                source_files = set()
-                chunk_count = 0
-                
-                for doc in self._in_memory_storage.values():
-                    if doc.source_file:
-                        source_files.add(doc.source_file)
-                    chunk_count += 1
-                
-                collection_stats = CollectionStats(
-                    total_points=total_points,
-                    total_vectors=total_points,
-                    collection_size=total_points * self.vector_size * 4,  # Approximate size in bytes
-                    last_updated=datetime.now(),
-                    source_files=list(source_files),
-                    chunk_count=chunk_count
-                )
-                
-                self._track_operation("get_collection_stats", start_time)
-                return collection_stats
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -1245,7 +1330,7 @@ class VectorStoreService:
         health_issues = []
         
         # Check connection
-        if not self.is_connected and not self._use_fallback:
+        if not self.is_connected:
             health_score -= 30
             health_issues.append("Not connected to vector database")
         
@@ -1280,7 +1365,6 @@ class VectorStoreService:
             "health_score": health_score,
             "health_issues": health_issues,
             "connected": self.is_connected,
-            "fallback_mode": self._use_fallback,
             "collection_name": self.collection_name,
             "vector_size": self.vector_size,
             "uptime": current_time - self.start_time,
@@ -1391,20 +1475,6 @@ class VectorStoreService:
             Dict with storage metrics
         """
         try:
-            if self._use_fallback:
-                # In-memory storage metrics
-                total_docs = len(self._in_memory_storage)
-                estimated_size = total_docs * self.vector_size * 4  # Approximate size in bytes
-                
-                return {
-                    "storage_type": "in_memory",
-                    "total_documents": total_docs,
-                    "estimated_size_bytes": estimated_size,
-                    "estimated_size_mb": estimated_size / (1024 * 1024),
-                    "vector_size": self.vector_size,
-                    "collection_name": self.collection_name
-                }
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -1485,50 +1555,9 @@ class VectorStoreService:
             self._handle_operation_error("clear_collection", e)
             return False
     
-    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """Calculate cosine similarity between two vectors."""
-        try:
-            import numpy as np
-            vec1_array = np.array(vec1)
-            vec2_array = np.array(vec2)
-            
-            dot_product = np.dot(vec1_array, vec2_array)
-            norm1 = np.linalg.norm(vec1_array)
-            norm2 = np.linalg.norm(vec2_array)
-            
-            if norm1 == 0 or norm2 == 0:
-                return 0.0
-            
-            return dot_product / (norm1 * norm2)
-        except ImportError:
-            # Fallback without numpy
-            if len(vec1) != len(vec2):
-                return 0.0
-            
-            dot_product = sum(a * b for a, b in zip(vec1, vec2))
-            norm1 = sum(a * a for a in vec1) ** 0.5
-            norm2 = sum(a * a for a in vec2) ** 0.5
-            
-            if norm1 == 0 or norm2 == 0:
-                return 0.0
-            
-            return dot_product / (norm1 * norm2)
+
     
-    def _apply_filters(self, doc: VectorDocument, filters: Dict[str, Any]) -> bool:
-        """Apply filters to a document for in-memory search."""
-        for key, value in filters.items():
-            if key == "source_file":
-                if doc.source_file != value:
-                    return False
-            elif key.startswith("metadata."):
-                metadata_key = key.split(".", 1)[1]
-                if doc.metadata.get(metadata_key) != value:
-                    return False
-            else:
-                # Generic field matching
-                if getattr(doc, key, None) != value:
-                    return False
-        return True
+
     
     def list_documents(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         """
@@ -1544,32 +1573,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # Get documents from in-memory storage
-                documents = list(self._in_memory_storage.values())
-                
-                # Group by source file
-                source_files = {}
-                for doc in documents:
-                    source_file = doc.source_file
-                    if source_file not in source_files:
-                        source_files[source_file] = {
-                            "id": source_file,
-                            "source_file": source_file,
-                            "chunk_count": 0,
-                            "created_at": doc.created_at.isoformat(),
-                            "updated_at": doc.updated_at.isoformat(),
-                            "metadata": doc.metadata
-                        }
-                    source_files[source_file]["chunk_count"] += 1
-                
-                # Convert to list and apply pagination
-                result = list(source_files.values())
-                result = result[offset:offset + limit]
-                
-                self._track_operation("list_documents", start_time)
-                return result
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             
@@ -1652,22 +1655,6 @@ class VectorStoreService:
         start_time = time.time()
         
         try:
-            if self._use_fallback:
-                # In-memory batch search
-                all_results = []
-                for query_vector in query_vectors:
-                    results = self.search_similar(
-                        query_vector=query_vector,
-                        top_k=top_k,
-                        score_threshold=score_threshold,
-                        filters=filters
-                    )
-                    all_results.append(results)
-                
-                self._track_operation("batch_search", start_time)
-                logger.debug(f"In-memory batch search completed: {len(query_vectors)} queries")
-                return all_results
-            
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
             

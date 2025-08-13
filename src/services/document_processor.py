@@ -238,12 +238,13 @@ class DocumentProcessor:
             
             raise RuntimeError(error_msg)
     
-    def process_file(self, file_path: Union[str, Path]) -> Dict[str, Any]:
+    def process_file(self, file_path: Union[str, Path], document_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a file and return a result object compatible with the API.
         
         Args:
             file_path: Path to the document file
+            document_id: Optional document ID to include in chunk metadata
             
         Returns:
             Dict containing 'chunks' and 'metadata' keys
@@ -263,8 +264,14 @@ class DocumentProcessor:
             vector_documents = []
             
             for chunk in chunks:
+                # Add document_id to chunk metadata if provided
+                if document_id:
+                    chunk.metadata['document_id'] = document_id
+                
+                # Generate a proper UUID for Qdrant
+                import uuid
                 vector_doc = VectorDocument(
-                    id=chunk.chunk_id,
+                    id=str(uuid.uuid4()),
                     text=chunk.text,
                     vector=[],  # Will be populated by embedding service
                     metadata=chunk.metadata,

@@ -59,6 +59,30 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
 - Docker and Docker Compose
 - 8GB+ RAM (for local AI models)
 - Git
+- Internet connection for model downloads
+
+#### Required AI Models
+
+The system uses the following pre-trained models that will be downloaded automatically on first use:
+
+- **Sentence Transformer Model**: `sentence-transformers/all-MiniLM-L6-v2` (~90MB)
+  - Used for document embeddings and semantic search
+  - Downloads automatically when the embedding service starts
+  - Stored locally in the HuggingFace cache directory
+
+- **LLM Model**: `llama3.2:1b` (via Ollama)
+  - Used for text generation and question answering
+  - Requires Ollama to be installed and running
+  - Download with: `ollama pull llama3.2:1b`
+
+> **Note**: Model downloads happen automatically on first use, but you can pre-download them to avoid delays:
+> ```bash
+> # Pre-download sentence transformer model
+> python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+> 
+> # Pre-download LLM model (if using Ollama)
+> ollama pull llama3.2:1b
+> ```
 
 ### Installation
 

@@ -170,6 +170,11 @@ class QueryRequest(BaseModel):
         example="standard",
         enum=["standard", "conservative", "permissive"]
     )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of specific document IDs to search within. If None, searches all documents.",
+        example=["doc_123", "doc_456"]
+    )
 
     class Config:
         json_schema_extra = {
@@ -182,7 +187,8 @@ class QueryRequest(BaseModel):
                 "max_tokens": 1024,
                 "include_sources": True,
                 "response_format": "text",
-                "safety_level": "standard"
+                "safety_level": "standard",
+                "document_ids": ["doc_123", "doc_456"]
             }
         }
 

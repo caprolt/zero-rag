@@ -22,7 +22,10 @@ from enum import Enum
 import json
 
 from .vector_store import SearchResult
-from ..models.llm import LLMResponse
+try:
+    from ..models.llm import LLMResponse
+except ImportError:
+    from models.llm import LLMResponse
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

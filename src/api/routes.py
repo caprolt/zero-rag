@@ -294,8 +294,12 @@ async def list_documents(
         # Format documents for response
         formatted_documents = []
         for doc in documents:
+            # Try to get document_id from metadata, fallback to source_file
+            metadata = doc.get("metadata", {})
+            document_id = metadata.get("document_id", doc.get("id", ""))
+            
             formatted_documents.append({
-                "document_id": doc.get("id", ""),
+                "document_id": document_id,
                 "filename": doc.get("source_file", "Unknown"),
                 "file_size": 0,  # Not available from vector store
                 "upload_timestamp": time.time(),  # Use current time as fallback
@@ -349,6 +353,12 @@ async def query(
         # Create RAG query
         from ..services.rag_pipeline import RAGQuery
         
+        # Prepare filters for document selection
+        filters = None
+        if request.document_ids:
+            filters = {"document_ids": request.document_ids}
+            logger.info(f"Applying document filters: {filters}")
+        
         rag_query = RAGQuery(
             query=request.query,
             top_k=request.top_k,
@@ -358,8 +368,11 @@ async def query(
             max_tokens=request.max_tokens,
             include_sources=request.include_sources,
             response_format=request.response_format,
-            safety_level=request.safety_level
+            safety_level=request.safety_level,
+            filters=filters
         )
+        
+        logger.info(f"RAG query created with filters: {rag_query.filters}")
         
         # Process query
         response = service_factory.rag_pipeline.process_query(rag_query)
@@ -372,10 +385,10 @@ async def query(
         if response.sources:
             for source in response.sources:
                 sources.append({
-                    "filename": source.get("filename", "Unknown"),
+                    "filename": source.get("file", "Unknown"),
                     "chunk_index": source.get("chunk_index", 0),
-                    "relevance_score": source.get("relevance_score", 0.0),
-                    "content_preview": source.get("content", "")[:200] + "..." if len(source.get("content", "")) > 200 else source.get("content", "")
+                    "relevance_score": source.get("score", 0.0),
+                    "content_preview": source.get("text_preview", "")[:200] + "..." if len(source.get("text_preview", "")) > 200 else source.get("text_preview", "")
                 })
         
         return QueryResponse(
@@ -426,6 +439,11 @@ async def query_stream(
         # Create RAG query
         from ..services.rag_pipeline import RAGQuery
         
+        # Prepare filters for document selection
+        filters = None
+        if request.document_ids:
+            filters = {"document_ids": request.document_ids}
+        
         rag_query = RAGQuery(
             query=request.query,
             top_k=request.top_k,
@@ -435,7 +453,8 @@ async def query_stream(
             max_tokens=request.max_tokens,
             include_sources=request.include_sources,
             response_format=request.response_format,
-            safety_level=request.safety_level
+            safety_level=request.safety_level,
+            filters=filters
         )
         
         async def generate_stream() -> Generator[str, None, None]:
@@ -596,7 +615,7 @@ async def process_document_background_with_progress(
         
         # Process document
         try:
-            result = service_factory.document_processor.process_file(file_path)
+            result = service_factory.document_processor.process_file(file_path, document_id)
             logger.info(f"Document processing completed for {filename}, result type: {type(result)}")
         except Exception as e:
             logger.error(f"Document processing failed for {filename}: {e}")

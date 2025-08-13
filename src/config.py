@@ -99,6 +99,12 @@ class APIConfig(BaseSettings):
     api_key: Optional[str] = Field(default=None, env="API_KEY")
     rate_limit_per_minute: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
     
+    # Performance and Memory Management
+    memory_threshold_mb: int = Field(default=2000, env="MEMORY_THRESHOLD_MB")
+    memory_critical_threshold_mb: int = Field(default=3000, env="MEMORY_CRITICAL_THRESHOLD_MB")
+    gc_interval_seconds: int = Field(default=180, env="GC_INTERVAL_SECONDS")
+    batch_size: int = Field(default=100, env="BATCH_SIZE")
+    
     @field_validator("port")
     @classmethod
     def validate_port(cls, v):
