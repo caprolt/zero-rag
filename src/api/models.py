@@ -74,35 +74,35 @@ class HealthResponse(BaseModel):
         example="1.0.0"
     )
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "status": "healthy",
-                "timestamp": 1703123456.789,
-                "services": {
-                    "document_processor": {
-                        "status": "healthy",
-                        "last_check": 1703123456.789,
-                        "error_count": 0,
-                        "health_data": {"queue_size": 0}
-                    },
-                    "vector_store": {
-                        "status": "healthy",
-                        "last_check": 1703123456.789,
-                        "error_count": 0,
-                        "health_data": {"document_count": 150}
-                    },
-                    "llm_service": {
-                        "status": "healthy",
-                        "last_check": 1703123456.789,
-                        "error_count": 0,
-                        "health_data": {"model_loaded": True}
-                    }
+class Config:
+    json_json_schema_extra = {
+        "example": {
+            "status": "healthy",
+            "timestamp": 1703123456.789,
+            "services": {
+                "document_processor": {
+                    "status": "healthy",
+                    "last_check": 1703123456.789,
+                    "error_count": 0,
+                    "health_data": {"queue_size": 0}
                 },
-                "uptime": 3600.5,
-                "version": "1.0.0"
-            }
+                "vector_store": {
+                    "status": "healthy", 
+                    "last_check": 1703123456.789,
+                    "error_count": 0,
+                    "health_data": {"document_count": 150}
+                },
+                "llm_service": {
+                    "status": "healthy",
+                    "last_check": 1703123456.789,
+                    "error_count": 0,
+                    "health_data": {"model_loaded": True}
+                }
+            },
+            "uptime": 3600.5,
+            "version": "1.0.0"
         }
+    }
 
 
 class QueryRequest(BaseModel):
@@ -172,7 +172,7 @@ class QueryRequest(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "What are the key features of our product?",
                 "top_k": 5,
@@ -226,7 +226,7 @@ class QueryResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "answer": "Our product offers several key features including advanced AI capabilities, real-time processing, and comprehensive analytics. The system is designed for scalability and ease of use.",
                 "sources": [
@@ -298,7 +298,7 @@ class DocumentUploadResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "document_id": "doc_abc123def456",
                 "filename": "product_manual.pdf",
@@ -357,7 +357,7 @@ class UploadProgressResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "document_id": "doc_abc123def456",
                 "status": "processing",
@@ -393,7 +393,7 @@ class FileValidationRequest(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "filename": "document.pdf",
                 "file_size": 1048576,
@@ -429,7 +429,7 @@ class FileValidationResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "is_valid": True,
                 "errors": [],
@@ -481,7 +481,7 @@ class DocumentInfo(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "document_id": "doc_abc123def456",
                 "filename": "product_manual.pdf",
@@ -521,7 +521,7 @@ class DocumentListResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "documents": [
                     {
@@ -568,7 +568,7 @@ class ErrorResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "error": "File validation failed",
                 "detail": "File size exceeds maximum allowed size of 10MB",
@@ -616,7 +616,7 @@ class MetricsResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total_requests": 1250,
                 "failed_requests": 23,
@@ -675,7 +675,7 @@ class ServiceHealthResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "service": "document_processor",
                 "status": "healthy",
@@ -734,7 +734,7 @@ class StreamingChunk(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "type": "content",
                 "content": "Our product offers several key features including advanced AI capabilities...",
@@ -782,7 +782,7 @@ class StreamConnectionInfo(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "connection_id": "conn_abc123def456",
                 "created_at": 1703123456.789,
@@ -824,7 +824,7 @@ class APIInfo(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "ZeroRAG API",
                 "version": "1.0.0",
@@ -860,7 +860,7 @@ class CleanupRequest(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "document_ids": None,
                 "older_than_days": 30,
@@ -897,7 +897,7 @@ class CleanupResponse(BaseModel):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "deleted_documents": 15,
                 "deleted_files": 15,

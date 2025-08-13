@@ -238,6 +238,52 @@ class DocumentProcessor:
             
             raise RuntimeError(error_msg)
     
+    def process_file(self, file_path: Union[str, Path]) -> Dict[str, Any]:
+        """
+        Process a file and return a result object compatible with the API.
+        
+        Args:
+            file_path: Path to the document file
+            
+        Returns:
+            Dict containing 'chunks' and 'metadata' keys
+            
+        Raises:
+            ValueError: If file doesn't exist or is unsupported
+            RuntimeError: If processing fails
+        """
+        try:
+            chunks, metadata = self.process_document(file_path)
+            
+            # Convert chunks to the format expected by the vector store
+            try:
+                from .vector_store import VectorDocument
+            except ImportError:
+                from vector_store import VectorDocument
+            vector_documents = []
+            
+            for chunk in chunks:
+                vector_doc = VectorDocument(
+                    id=chunk.chunk_id,
+                    text=chunk.text,
+                    vector=[],  # Will be populated by embedding service
+                    metadata=chunk.metadata,
+                    source_file=chunk.source_file,
+                    chunk_index=chunk.chunk_index,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                vector_documents.append(vector_doc)
+            
+            return {
+                'chunks': vector_documents,
+                'metadata': metadata
+            }
+            
+        except Exception as e:
+            logger.error(f"process_file failed for {file_path}: {e}")
+            raise
+    
     def _extract_file_metadata(self, file_path: Path) -> DocumentMetadata:
         """Extract file metadata."""
         stat = file_path.stat()

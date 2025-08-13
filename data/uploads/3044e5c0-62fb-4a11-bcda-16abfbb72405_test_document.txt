@@ -1,0 +1,12 @@
+
+    This is a test document for the ZeroRAG system. It contains multiple sentences to test the chunking functionality.
+    
+    The document processor should be able to handle various text formats and create appropriate chunks for embedding.
+    Each chunk should maintain semantic coherence while staying within the specified size limits.
+    
+    This paragraph contains additional information about the system's capabilities. The processor supports multiple file formats including TXT, CSV, and Markdown files.
+    
+    The chunking algorithm uses intelligent sentence boundary detection to ensure that chunks don't break sentences inappropriately. This helps maintain the semantic meaning of the content.
+    
+    Finally, this document includes metadata extraction capabilities that track file information, processing statistics, and performance metrics.
+    

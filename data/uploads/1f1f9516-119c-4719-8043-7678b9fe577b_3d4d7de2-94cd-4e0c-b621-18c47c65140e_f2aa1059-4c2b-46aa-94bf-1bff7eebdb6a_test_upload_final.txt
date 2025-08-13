@@ -1,0 +1,10 @@
+This is a test document to verify that the upload and processing functionality is working correctly after the recent fixes. 
+
+The document should be:
+1. Uploaded successfully to the data/uploads directory
+2. Processed into chunks by the document processor
+3. Stored in the vector database for retrieval
+
+This text contains enough content to create multiple chunks during processing, which will help verify that the chunking and vector storage is working properly.
+
+The system should now handle the import issues that were causing the background processing to fail.

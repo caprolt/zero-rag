@@ -1,167 +1,107 @@
 #!/usr/bin/env python3
 """
-Simple Test API Server for ZeroRAG
+Test script to verify ZeroRAG API server functionality
 
-This is a minimal API server to test the Streamlit UI functionality.
-It provides basic endpoints that the UI expects.
+This script tests the API server startup and basic functionality.
 """
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Dict, Any, List
+import subprocess
+import sys
 import time
-import uuid
+import requests
+from pathlib import Path
 
-app = FastAPI(
-    title="ZeroRAG Test API",
-    description="Simple test API for ZeroRAG Streamlit UI",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# In-memory storage for testing
-documents = {}
-upload_progress = {}
-
-class QueryRequest(BaseModel):
-    query: str
-    stream: bool = False
-
-class QueryResponse(BaseModel):
-    answer: str
-    sources: List[Dict[str, Any]]
-    processing_time: float
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "services": {
-            "api": {
-                "status": "healthy",
-                "last_check": time.time(),
-                "error_count": 0
-            }
-        },
-        "uptime": 0,
-        "version": "1.0.0"
-    }
-
-@app.get("/documents")
-async def list_documents():
-    """List all documents."""
-    return {
-        "documents": [
-            {
-                "id": doc_id,
-                "name": doc_info["name"],
-                "size": doc_info["size"],
-                "uploaded_at": doc_info["uploaded_at"]
-            }
-            for doc_id, doc_info in documents.items()
-        ]
-    }
-
-@app.post("/documents/validate")
-async def validate_document(file):
-    """Validate a document before upload."""
-    return {
-        "valid": True,
-        "filename": file.filename,
-        "size": len(file.file.read()),
-        "message": "File is valid"
-    }
-
-@app.post("/documents/upload")
-async def upload_document(file):
-    """Upload a document."""
-    doc_id = str(uuid.uuid4())
-    file_content = file.file.read()
+def test_api_server():
+    """Test the API server startup and basic functionality."""
+    print("🧪 Testing ZeroRAG API Server...")
+    print("=" * 50)
     
-    documents[doc_id] = {
-        "name": file.filename,
-        "size": len(file_content),
-        "uploaded_at": time.time(),
-        "content": file_content.decode('utf-8', errors='ignore')
-    }
+    # Check if we're in the right directory
+    if not Path("src/api/main.py").exists():
+        print("❌ Error: src/api/main.py not found. Please run this script from the project root.")
+        return False
     
-    # Initialize progress
-    upload_progress[doc_id] = {
-        "status": "processing",
-        "progress": 0
-    }
-    
-    # Simulate processing
-    for i in range(10):
-        upload_progress[doc_id]["progress"] = (i + 1) * 10
-        time.sleep(0.1)
-    
-    upload_progress[doc_id]["status"] = "completed"
-    upload_progress[doc_id]["progress"] = 100
-    
-    return {
-        "document_id": doc_id,
-        "filename": file.filename,
-        "size": len(file_content),
-        "message": "Document uploaded successfully"
-    }
-
-@app.get("/documents/upload/{document_id}/progress")
-async def get_upload_progress(document_id: str):
-    """Get upload progress for a document."""
-    if document_id not in upload_progress:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
-    return upload_progress[document_id]
-
-@app.post("/query")
-async def query_documents(request: QueryRequest):
-    """Process a query."""
-    start_time = time.time()
-    
-    # Simple response based on available documents
-    if documents:
-        answer = f"I found {len(documents)} document(s) in the system. "
-        answer += "This is a test response from the ZeroRAG API server. "
-        answer += f"Your query was: '{request.query}'"
+    # Start API server
+    print("🚀 Starting API server...")
+    try:
+        api_process = subprocess.Popen([
+            sys.executable, "-m", "uvicorn", 
+            "src.api.main:app", 
+            "--host", "localhost", 
+            "--port", "8000"
+        ], cwd=Path.cwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        sources = [
-            {
-                "title": doc_info["name"],
-                "content": doc_info["content"][:200] + "...",
-                "score": 0.95
+        # Wait for server to start
+        print("⏳ Waiting for server to start...")
+        time.sleep(5)
+        
+        # Test health endpoint
+        print("🔍 Testing health endpoint...")
+        try:
+            response = requests.get("http://localhost:8000/health/ping", timeout=10)
+            if response.status_code == 200:
+                print("✅ Health endpoint working!")
+            else:
+                print(f"❌ Health endpoint returned status {response.status_code}")
+                return False
+        except requests.RequestException as e:
+            print(f"❌ Health endpoint failed: {e}")
+            return False
+        
+        # Test main health endpoint
+        print("🔍 Testing main health endpoint...")
+        try:
+            response = requests.get("http://localhost:8000/health", timeout=10)
+            if response.status_code == 200:
+                health_data = response.json()
+                print(f"✅ Main health endpoint working! Status: {health_data.get('status', 'unknown')}")
+            else:
+                print(f"❌ Main health endpoint returned status {response.status_code}")
+        except requests.RequestException as e:
+            print(f"❌ Main health endpoint failed: {e}")
+        
+        # Test root endpoint
+        print("🔍 Testing root endpoint...")
+        try:
+            response = requests.get("http://localhost:8000/", timeout=10)
+            if response.status_code == 200:
+                root_data = response.json()
+                print(f"✅ Root endpoint working! API: {root_data.get('name', 'unknown')}")
+            else:
+                print(f"❌ Root endpoint returned status {response.status_code}")
+        except requests.RequestException as e:
+            print(f"❌ Root endpoint failed: {e}")
+        
+        # Test file validation endpoint
+        print("🔍 Testing file validation endpoint...")
+        try:
+            test_data = {
+                "filename": "test.txt",
+                "file_size": 1024,
+                "content_type": "text/plain"
             }
-            for doc_info in documents.values()
-        ]
-    else:
-        answer = "No documents found in the system. Please upload some documents first."
-        sources = []
-    
-    processing_time = time.time() - start_time
-    
-    return QueryResponse(
-        answer=answer,
-        sources=sources,
-        processing_time=processing_time
-    )
+            response = requests.post("http://localhost:8000/documents/validate", json=test_data, timeout=10)
+            if response.status_code == 200:
+                validation_data = response.json()
+                print(f"✅ File validation endpoint working! Valid: {validation_data.get('is_valid', False)}")
+            else:
+                print(f"❌ File validation endpoint returned status {response.status_code}")
+        except requests.RequestException as e:
+            print(f"❌ File validation endpoint failed: {e}")
+        
+        # Stop the server
+        print("🛑 Stopping API server...")
+        api_process.terminate()
+        api_process.wait(timeout=10)
+        
+        print("=" * 50)
+        print("✅ API server test completed successfully!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        return False
 
 if __name__ == "__main__":
-    import uvicorn
-    print("🚀 Starting ZeroRAG Test API Server...")
-    print("📱 API will be available at: http://localhost:8000")
-    print("📚 API docs at: http://localhost:8000/docs")
-    print("⏹️  Press Ctrl+C to stop")
-    print("-" * 50)
-    
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+    success = test_api_server()
+    sys.exit(0 if success else 1)

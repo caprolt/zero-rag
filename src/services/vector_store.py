@@ -1530,6 +1530,81 @@ class VectorStoreService:
                     return False
         return True
     
+    def list_documents(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """
+        List documents in the vector store with pagination.
+        
+        Args:
+            limit: Maximum number of documents to return
+            offset: Number of documents to skip
+            
+        Returns:
+            List of document metadata dictionaries
+        """
+        start_time = time.time()
+        
+        try:
+            if self._use_fallback:
+                # Get documents from in-memory storage
+                documents = list(self._in_memory_storage.values())
+                
+                # Group by source file
+                source_files = {}
+                for doc in documents:
+                    source_file = doc.source_file
+                    if source_file not in source_files:
+                        source_files[source_file] = {
+                            "id": source_file,
+                            "source_file": source_file,
+                            "chunk_count": 0,
+                            "created_at": doc.created_at.isoformat(),
+                            "updated_at": doc.updated_at.isoformat(),
+                            "metadata": doc.metadata
+                        }
+                    source_files[source_file]["chunk_count"] += 1
+                
+                # Convert to list and apply pagination
+                result = list(source_files.values())
+                result = result[offset:offset + limit]
+                
+                self._track_operation("list_documents", start_time)
+                return result
+            
+            if not self._check_health():
+                raise ConnectionError("Vector store not connected")
+            
+            # Get documents from Qdrant
+            search_results = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True
+            )[0]
+            
+            # Group by source file
+            source_files = {}
+            for point in search_results:
+                source_file = point.payload.get("source_file", "")
+                if source_file not in source_files:
+                    source_files[source_file] = {
+                        "id": source_file,
+                        "source_file": source_file,
+                        "chunk_count": 0,
+                        "created_at": point.payload.get("created_at", ""),
+                        "updated_at": point.payload.get("updated_at", ""),
+                        "metadata": point.payload.get("metadata", {})
+                    }
+                source_files[source_file]["chunk_count"] += 1
+            
+            result = list(source_files.values())
+            
+            self._track_operation("list_documents", start_time)
+            return result
+            
+        except Exception as e:
+            self._handle_operation_error("list_documents", e)
+            return []
+
     def close(self):
         """Close the vector store connection and stop background services."""
         try:

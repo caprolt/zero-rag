@@ -1,0 +1,6 @@
+This is a simple test document for metadata extraction.
+
+It contains multiple paragraphs and sentences. This should help us test
+the sentence counting and paragraph detection features.
+
+The document also includes some basic formatting and structure.

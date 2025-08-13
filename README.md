@@ -114,12 +114,32 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
    ```
 
 7. **Start the application**
+   
+   **Option A: Use the startup script (Recommended)**
    ```bash
-   # Start the API server
+   # Windows:
+   start_app.bat
+   
+   # Or manually:
+   python start_app.py
+   ```
+   
+   **Option B: Start services separately**
+   ```bash
+   # Start the API server (takes 30-45 seconds to fully start)
    python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
    
    # In another terminal, start the UI
    streamlit run src/ui/streamlit_app.py
+   ```
+   
+   **Option C: Test API connection**
+   ```bash
+   # Test if API is running
+   python test_api_connection.py
+   
+   # Wait for API to start and then test
+   python test_api_connection.py --wait
    ```
 
 8. **Access the application**
@@ -201,6 +221,37 @@ pytest tests/test_services.py
 pytest --cov=src
 ```
 
+### API Connection Testing
+
+Test the API connection and document listing:
+
+```bash
+# Test if API is running
+python test_api_connection.py
+
+# Wait for API to start and then test
+python test_api_connection.py --wait
+```
+
+## 🔧 Troubleshooting
+
+### "Cannot reach api" Error
+
+If you see "Cannot reach api" in the UI:
+
+1. **Wait for startup**: The API server takes 30-45 seconds to fully start up
+2. **Check if API is running**: Run `python test_api_connection.py --wait`
+3. **Start the API server**: Use `python start_app.py` or start manually
+4. **Check ports**: Ensure port 8000 is not in use by another service
+5. **Check firewall**: Ensure localhost connections are allowed
+
+### Common Issues
+
+- **API server not starting**: Check if all dependencies are installed
+- **UI shows disconnected**: Wait 30-45 seconds for API startup, then refresh
+- **Document upload fails**: Ensure the API server is fully started
+- **Port conflicts**: Change ports in configuration if needed
+
 ## 📊 Performance
 
 - **Query Response Time**: < 5 seconds
@@ -208,6 +259,64 @@ pytest --cov=src
 - **System Uptime**: > 99%
 - **Scalability**: 1000+ documents
 - **Memory Usage**: < 4GB RAM
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**1. API Server Connection Timeout**
+```
+Error: HTTPConnectionPool(host='localhost', port=8000): Read timed out
+```
+**Solution:**
+- Ensure the API server is running: `python start_app.py`
+- Check if port 8000 is available: `netstat -an | findstr :8000` (Windows) or `lsof -i :8000` (Linux/Mac)
+- Restart the application using the startup script
+
+**2. File Upload Validation Failed**
+```
+Error: File validation failed: timeout
+```
+**Solution:**
+- The API server might be overloaded
+- Try uploading a smaller file
+- Restart the API server
+- Check the server logs for errors
+
+**3. Streamlit Can't Connect to API**
+```
+Error: Cannot connect to ZeroRAG API
+```
+**Solution:**
+- Use the startup script: `python start_app.py`
+- Verify both services are running:
+  - API: http://localhost:8000/health/ping
+  - UI: http://localhost:8501
+- Check firewall settings
+
+**4. Database Connection Issues**
+```
+Error: Connection to Qdrant/Redis failed
+```
+**Solution:**
+- Start infrastructure: `docker-compose up -d`
+- Check service status: `docker-compose ps`
+- Verify ports are not blocked
+
+### Testing the API Server
+
+Run the API server test to verify functionality:
+```bash
+python test_api_server.py
+```
+
+### Debug Mode
+
+Enable debug logging by setting environment variables:
+```bash
+export LOG_LEVEL=DEBUG
+export API_LOG_LEVEL=debug
+```
 
 ## 🔧 Development
 

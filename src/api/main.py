@@ -34,15 +34,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-
-try:
-    from ..config import get_config
-    from ..services.service_factory import ServiceFactory
-    from .advanced_features import stream_manager
-except ImportError:
-    from config import get_config
-    from services.service_factory import ServiceFactory
-    from .advanced_features import stream_manager
+from ..config import get_config
+from ..services.service_factory import ServiceFactory
+from .advanced_features import stream_manager
 from .models import ErrorResponse, APIInfo
 from .routes import health_router, documents_router, query_router, metrics_router, advanced_router
 

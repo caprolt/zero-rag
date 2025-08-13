@@ -55,6 +55,11 @@ def get_service_factory() -> ServiceFactory:
 
 
 # Health Routes
+@health_router.get("/ping")
+async def ping():
+    """Simple ping endpoint for quick health checks."""
+    return {"status": "ok", "timestamp": time.time()}
+
 @health_router.get("/", response_model=HealthResponse)
 async def health_check(service_factory: ServiceFactory = Depends(get_service_factory)):
     """Comprehensive health check endpoint."""
@@ -245,11 +250,63 @@ async def list_documents(
 ):
     """List uploaded documents."""
     try:
-        # This would typically query the vector store for document metadata
-        # For now, return a placeholder response
+        # Try to use existing vector store first
+        if service_factory.vector_store:
+            documents = service_factory.vector_store.list_documents(limit=limit, offset=offset)
+        else:
+            # Create lightweight direct Qdrant connection for document listing only
+            from qdrant_client import QdrantClient
+            from ..config import get_config
+            
+            config = get_config()
+            client = QdrantClient(
+                host=config.database.qdrant_host,
+                port=config.database.qdrant_port,
+                api_key=config.database.qdrant_api_key,
+                timeout=10.0
+            )
+            
+            # Get documents directly from Qdrant
+            search_results = client.scroll(
+                collection_name=config.database.qdrant_collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True
+            )[0]
+            
+            # Group by source file
+            source_files = {}
+            for point in search_results:
+                source_file = point.payload.get("source_file", "")
+                if source_file not in source_files:
+                    source_files[source_file] = {
+                        "id": source_file,
+                        "source_file": source_file,
+                        "chunk_count": 0,
+                        "created_at": point.payload.get("created_at", ""),
+                        "updated_at": point.payload.get("updated_at", ""),
+                        "metadata": point.payload.get("metadata", {})
+                    }
+                source_files[source_file]["chunk_count"] += 1
+            
+            documents = list(source_files.values())
+        
+        # Format documents for response
+        formatted_documents = []
+        for doc in documents:
+            formatted_documents.append({
+                "document_id": doc.get("id", ""),
+                "filename": doc.get("source_file", "Unknown"),
+                "file_size": 0,  # Not available from vector store
+                "upload_timestamp": time.time(),  # Use current time as fallback
+                "chunks_count": doc.get("chunk_count", 0),
+                "status": "active",
+                "metadata": doc.get("metadata", {})
+            })
+        
         return DocumentListResponse(
-            documents=[],
-            total=0,
+            documents=formatted_documents,
+            total=len(formatted_documents),
             limit=limit,
             offset=offset
         )
@@ -538,17 +595,46 @@ async def process_document_background_with_progress(
         await upload_tracker.update_progress(document_id, ProcessingStep.PARSING, 20.0)
         
         # Process document
-        result = service_factory.document_processor.process_file(file_path)
+        try:
+            result = service_factory.document_processor.process_file(file_path)
+            logger.info(f"Document processing completed for {filename}, result type: {type(result)}")
+        except Exception as e:
+            logger.error(f"Document processing failed for {filename}: {e}")
+            raise
         
         # Update progress to chunking step
         await upload_tracker.update_progress(document_id, ProcessingStep.CHUNKING, 40.0)
         
         # Store in vector database
-        if result and result.chunks:
+        logger.info(f"Processing result for {filename}: {result}")
+        if result and result.get('chunks'):
             # Update progress to embedding step
             await upload_tracker.update_progress(document_id, ProcessingStep.EMBEDDING, 60.0)
             
-            service_factory.vector_store.add_documents(result.chunks)
+            # Embed the documents before storing
+            try:
+                embedding_service = service_factory.get_embedding_service()
+                if embedding_service:
+                    # Extract text from chunks for embedding
+                    texts = [chunk.text for chunk in result['chunks']]
+                    embeddings = embedding_service.encode(texts)
+                    
+                    # Update chunks with embeddings
+                    for i, chunk in enumerate(result['chunks']):
+                        if i < len(embeddings):
+                            chunk.vector = embeddings[i]
+                        else:
+                            logger.warning(f"Missing embedding for chunk {i}")
+                    
+                    logger.info(f"Successfully embedded {len(embeddings)} chunks for {filename}")
+                else:
+                    logger.error("Embedding service not available")
+                    raise Exception("Embedding service not available")
+            except Exception as e:
+                logger.error(f"Embedding failed for {filename}: {e}")
+                raise
+            
+            service_factory.vector_store.insert_documents_batch(result['chunks'])
             
             # Update progress to storage step
             await upload_tracker.update_progress(document_id, ProcessingStep.STORAGE, 80.0)
@@ -556,7 +642,7 @@ async def process_document_background_with_progress(
             # Update progress to completed
             await upload_tracker.update_progress(document_id, ProcessingStep.COMPLETED, 100.0)
             
-            logger.info(f"Successfully processed and stored {len(result.chunks)} chunks for {filename}")
+            logger.info(f"Successfully processed and stored {len(result['chunks'])} chunks for {filename}")
         else:
             # Update progress to failed
             await upload_tracker.update_progress(
@@ -593,9 +679,32 @@ async def process_document_background(
         result = service_factory.document_processor.process_file(file_path)
         
         # Store in vector database
-        if result and result.chunks:
-            service_factory.vector_store.add_documents(result.chunks)
-            logger.info(f"Successfully processed and stored {len(result.chunks)} chunks for {filename}")
+        if result and result.get('chunks'):
+            # Embed the documents before storing
+            try:
+                embedding_service = service_factory.get_embedding_service()
+                if embedding_service:
+                    # Extract text from chunks for embedding
+                    texts = [chunk.text for chunk in result['chunks']]
+                    embeddings = embedding_service.encode(texts)
+                    
+                    # Update chunks with embeddings
+                    for i, chunk in enumerate(result['chunks']):
+                        if i < len(embeddings):
+                            chunk.vector = embeddings[i]
+                        else:
+                            logger.warning(f"Missing embedding for chunk {i}")
+                    
+                    logger.info(f"Successfully embedded {len(embeddings)} chunks for {filename}")
+                else:
+                    logger.error("Embedding service not available")
+                    raise Exception("Embedding service not available")
+            except Exception as e:
+                logger.error(f"Embedding failed for {filename}: {e}")
+                raise
+            
+            service_factory.vector_store.insert_documents_batch(result['chunks'])
+            logger.info(f"Successfully processed and stored {len(result['chunks'])} chunks for {filename}")
         else:
             logger.warning(f"No chunks created for document {filename}")
             
