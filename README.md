@@ -111,6 +111,49 @@ The system uses the following pre-trained models that will be downloaded automat
 
 ### Installation
 
+#### 🐳 Docker Installation (Recommended)
+
+The easiest way to run ZeroRAG is using Docker, which includes both frontend and backend services:
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/zero-rag.git
+   cd zero-rag
+   ```
+
+2. **Run with Docker (All-in-One)**
+   ```bash
+   # Windows (PowerShell):
+   .\scripts\docker-setup.ps1
+   
+   # macOS/Linux:
+   ./scripts/docker-setup.sh
+   
+   # Or manually:
+   docker-compose -f docker-compose.full.yml up --build -d
+   ```
+
+3. **Access the application**
+   - **Frontend (Next.js)**: http://localhost:3000
+   - **Backend API**: http://localhost:8000
+   - **API Documentation**: http://localhost:8000/docs
+
+4. **Docker Management**
+   ```bash
+   # View logs
+   docker-compose -f docker-compose.full.yml logs -f
+   
+   # Stop services
+   docker-compose -f docker-compose.full.yml down
+   
+   # Restart services
+   docker-compose -f docker-compose.full.yml restart
+   ```
+
+#### 🔧 Manual Installation
+
+If you prefer to run services manually:
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/yourusername/zero-rag.git
@@ -185,7 +228,7 @@ The system uses the following pre-trained models that will be downloaded automat
    python start_app.py
    ```
    
-   **Option B: Start services separately**
+   **Option C: Start services separately**
    ```bash
    # Start the API server (takes 30-45 seconds to fully start)
    python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
@@ -194,7 +237,7 @@ The system uses the following pre-trained models that will be downloaded automat
    streamlit run src/ui/streamlit_app.py
    ```
    
-   **Option C: Test API connection**
+   **Option D: Test API connection**
    ```bash
    # Test if API is running
    python test_api_connection.py
