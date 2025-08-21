@@ -1,0 +1,28 @@
+# ZeroRAG System - Railway Optimized Requirements
+# Core Web Framework & API
+fastapi==0.116.1
+uvicorn==0.35.0
+pydantic-settings==2.4.0
+
+# AI/ML Core Libraries (CPU-only for Railway)
+torch==2.8.0+cpu
+transformers==4.55.0
+sentence-transformers==5.1.0
+
+# Vector Database
+qdrant-client==1.15.1
+
+# Data Processing
+pandas==2.3.1
+numpy==2.3.2
+
+# File Handling & Async
+python-multipart==0.0.19
+aiofiles==24.1.0
+
+# Production Deployment
+gunicorn==23.0.0
+redis==5.1.1
+
+# Additional dependencies for Railway
+psutil==5.9.8
