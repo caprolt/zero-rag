@@ -22,6 +22,24 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
 - 🛡️ **Production Ready**: Comprehensive error handling, logging, and monitoring
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 
+### 🎨 Frontend Options
+
+ZeroRAG now offers two frontend interfaces:
+
+#### **Modern Next.js UI (Recommended)**
+- 🎯 **React-based**: Built with Next.js 15, TypeScript, and Tailwind CSS
+- 🎨 **Modern Design**: Clean, professional interface with dark/light themes
+- 📱 **Mobile-First**: Fully responsive design optimized for all devices
+- ⚡ **Fast Performance**: Server-side rendering and optimized loading
+- 🔄 **Real-time Chat**: Interactive chat interface with streaming responses
+- 📁 **Document Management**: Drag-and-drop file upload and document sidebar
+- 🎛️ **Advanced Controls**: Context panel, theme switching, and more
+
+#### **Legacy Streamlit UI**
+- 🐍 **Python-based**: Simple Streamlit interface for quick prototyping
+- 📊 **Data-focused**: Ideal for data analysis and exploration
+- 🔧 **Easy Setup**: Minimal configuration required
+
 ### Technology Stack
 
 - **Backend**: FastAPI, Python 3.8+
@@ -31,7 +49,9 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
   - Local: Ollama with Llama 3.2 (1B parameters)
   - Fallback: HuggingFace Transformers
   - Embeddings: Sentence Transformers (all-MiniLM-L6-v2)
-- **Frontend**: Streamlit
+- **Frontend**: 
+  - **Modern UI**: Next.js 15 with TypeScript and Tailwind CSS
+  - **Legacy UI**: Streamlit (still available)
 - **Infrastructure**: Docker Compose
 - **Configuration**: Pydantic Settings
 
@@ -39,9 +59,14 @@ ZeroRAG is a cost-effective, production-ready RAG system designed to provide int
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Streamlit UI  │    │   FastAPI API   │    │  Document Store │
-│   (Port 8501)   │◄──►│   (Port 8000)   │◄──►│   (Local Files) │
+│   Next.js UI    │    │   FastAPI API   │    │  Document Store │
+│   (Port 3000)   │◄──►│   (Port 8000)   │◄──►│   (Local Files) │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │
+         │              ┌─────────────────┐
+         └──────────────►│   Streamlit UI  │
+                         │   (Port 8501)   │
+                         └─────────────────┘
                                 │
                                 ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -139,7 +164,19 @@ The system uses the following pre-trained models that will be downloaded automat
 
 7. **Start the application**
    
-   **Option A: Use the startup script (Recommended)**
+   **Option A: Full Application (Recommended) - Both Backend and Modern Frontend**
+   ```bash
+   # Windows:
+   start_full_app.bat
+   
+   # macOS/Linux:
+   ./start_full_app.sh
+   
+   # Or manually:
+   python start_full_app.py
+   ```
+   
+   **Option B: Legacy Application (Backend + Streamlit UI)**
    ```bash
    # Windows:
    start_app.bat
@@ -167,12 +204,61 @@ The system uses the following pre-trained models that will be downloaded automat
    ```
 
 8. **Access the application**
-   - Web UI: http://localhost:8501
-   - API Documentation: http://localhost:8000/docs
+   - **Modern UI (Next.js)**: http://localhost:3000
+   - **Legacy UI (Streamlit)**: http://localhost:8501
+   - **API Documentation**: http://localhost:8000/docs
+
+### 🚀 Running the Modern Frontend
+
+To use the new Next.js frontend:
+
+1. **Install Node.js dependencies**
+   ```bash
+   # Install pnpm (if not already installed)
+   npm install -g pnpm
+   
+   # Install frontend dependencies
+   pnpm install
+   ```
+
+2. **Start the Next.js development server**
+   ```bash
+   # Start the frontend (make sure the API is running first)
+   pnpm dev
+   ```
+
+3. **Build for production**
+   ```bash
+   # Build the frontend
+   pnpm build
+   
+   # Start production server
+   pnpm start
+   ```
+
+> **Note**: The Next.js frontend requires the FastAPI backend to be running on port 8000. Make sure to start the backend first using the instructions above.
 
 ## 📖 Usage Guide
 
-### Web Interface
+### Modern Next.js Interface (Recommended)
+
+1. **Upload Documents**
+   - Drag and drop files into the upload area or click to browse
+   - Supported formats: TXT, CSV, MD, PDF, DOCX
+   - View upload progress and processing status
+
+2. **Chat Interface**
+   - Type questions in the chat input at the bottom
+   - View real-time streaming responses
+   - See source citations and context panels
+   - Switch between light and dark themes
+
+3. **Document Management**
+   - Browse uploaded documents in the sidebar
+   - Search and filter documents
+   - View document metadata and processing status
+
+### Legacy Streamlit Interface
 
 1. **Upload Documents**
    - Click "Upload Documents" in the sidebar
