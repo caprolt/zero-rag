@@ -1008,10 +1008,16 @@ class VectorStoreService:
         try:
             if not self._check_health():
                 raise ConnectionError("Vector store not connected")
-            
+
             # Build search filter
             search_filter = self._build_search_filter(filters) if filters else None
             
+            # Log filter details for debugging
+            if filters:
+                logger.info(f"Search filters applied: {filters}")
+                if search_filter:
+                    logger.info(f"Qdrant filter built: {search_filter}")
+
             # Perform search
             search_results = self.client.search(
                 collection_name=self.collection_name,
@@ -1022,25 +1028,42 @@ class VectorStoreService:
                 with_payload=True
             )
             
+            logger.info(f"Vector search returned {len(search_results)} results before filtering")
+
             # Convert to SearchResult objects
             results = []
             for result in search_results:
+                # Get source file with fallback logic
+                source_file = result.payload.get("source_file", "") if result.payload else ""
+                if not source_file:
+                    # Try to get from metadata
+                    metadata = result.payload.get("metadata", {}) if result.payload else {}
+                    source_file = metadata.get("source_file", metadata.get("filename", "Unknown"))
+                
                 search_result = SearchResult(
-                    id=result.id,
-                    text=result.payload.get("text", ""),
+                    id=str(result.id),  # Ensure it's a string
+                    text=result.payload.get("text", "") if result.payload else "",
                     score=result.score,
-                    metadata=result.payload.get("metadata", {}),
-                    source_file=result.payload.get("source_file", ""),
-                    chunk_index=result.payload.get("chunk_index", 0)
+                    metadata=result.payload.get("metadata", {}) if result.payload else {},
+                    source_file=source_file,
+                    chunk_index=result.payload.get("chunk_index", 0) if result.payload else 0
                 )
                 results.append(search_result)
-            
+                
+                # Log document details for debugging
+                if filters and "document_ids" in filters:
+                    doc_id = result.payload.get("metadata", {}).get("document_id") if result.payload else None
+                    logger.info(f"Found document chunk: id={result.id}, document_id={doc_id}, score={result.score}, source_file={search_result.source_file}")
+                else:
+                    logger.info(f"Search result: id={result.id}, score={result.score}, source_file={search_result.source_file}")
+
             self._track_operation("search_similar", start_time)
-            logger.debug(f"Search completed: {len(results)} results")
+            logger.info(f"Search completed: {len(results)} results returned")
             return results
             
         except Exception as e:
             self._handle_operation_error("search_similar", e)
+            logger.error(f"Search failed: {e}")
             return []
     
     def _build_search_filter(self, filters: Dict[str, Any]) -> Filter:

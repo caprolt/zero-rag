@@ -126,11 +126,11 @@ class QueryRequest(BaseModel):
         example=5
     )
     score_threshold: float = Field(
-        default=0.7,
+        default=0.3,
         description="Minimum similarity score for document retrieval (0.0-1.0)",
         ge=0.0,
         le=1.0,
-        example=0.7
+        example=0.3
     )
     max_context_length: int = Field(
         default=4000,
@@ -181,7 +181,7 @@ class QueryRequest(BaseModel):
             "example": {
                 "query": "What are the key features of our product?",
                 "top_k": 5,
-                "score_threshold": 0.7,
+                "score_threshold": 0.3,
                 "max_context_length": 4000,
                 "temperature": 0.7,
                 "max_tokens": 1024,

@@ -264,6 +264,11 @@ async def startup_event():
     logger.info("Starting ZeroRAG FastAPI application...")
     logger.info(f"API configuration: {config.api.model_dump()}")
     
+    # Initialize the global service factory during startup
+    from ..services.service_factory import get_service_factory
+    service_factory = get_service_factory()
+    logger.info("Service factory initialized during startup")
+    
     # Start streaming connection cleanup task
     await stream_manager.start_cleanup_task()
     logger.info("Started streaming connection cleanup task")
@@ -278,6 +283,11 @@ async def shutdown_event():
     and cleans up resources.
     """
     logger.info("Shutting down ZeroRAG FastAPI application...")
+    
+    # Clean up service factory
+    from ..services.service_factory import shutdown_service_factory
+    shutdown_service_factory()
+    logger.info("Service factory shutdown completed")
     
     # Clean up streaming connections
     if stream_manager._cleanup_task and not stream_manager._cleanup_task.done():

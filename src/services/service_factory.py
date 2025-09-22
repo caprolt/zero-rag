@@ -8,18 +8,14 @@ configuration, and lifecycle management with comprehensive error handling.
 import logging
 import threading
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 from enum import Enum
 
-try:
-    from ..config import get_config
-    from ..models.embeddings import EmbeddingService
-    from ..models.llm import LLMService, LLMProvider
-except ImportError:
-    from config import get_config
-    from models.embeddings import EmbeddingService
-    from models.llm import LLMService, LLMProvider
+from ..config import get_config, Config
+from ..models.embeddings import EmbeddingService
+from ..models.llm import LLMService, LLMProvider
+
 from .document_processor import DocumentProcessor
 from .vector_store import VectorStoreService
 from .rag_pipeline import RAGPipeline
@@ -59,7 +55,7 @@ class ServiceFactory:
     - Performance metrics collection
     """
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Union[Dict[str, Any], Config]] = None):
         """Initialize the service factory."""
         self.config = get_config() if config is None else config
         
@@ -410,22 +406,25 @@ class ServiceFactory:
     
     def get_embedding_service(self) -> Optional[EmbeddingService]:
         """Get the embedding service if available and healthy."""
+        embedding_info = self.services.get("embedding")
         if (self.embedding_service and 
-            self.services.get("embedding", {}).status == ServiceStatus.HEALTHY):
+            embedding_info and embedding_info.status == ServiceStatus.HEALTHY):
             return self.embedding_service
         return None
     
     def get_llm_service(self) -> Optional[LLMService]:
         """Get the LLM service if available and healthy."""
+        llm_info = self.services.get("llm")
         if (self.llm_service and 
-            self.services.get("llm", {}).status == ServiceStatus.HEALTHY):
+            llm_info and llm_info.status == ServiceStatus.HEALTHY):
             return self.llm_service
         return None
     
     def get_document_processor(self) -> Optional[DocumentProcessor]:
         """Get the document processor if available and healthy."""
+        doc_info = self.services.get("document_processor")
         if (self.document_processor and 
-            self.services.get("document_processor", {}).status == ServiceStatus.HEALTHY):
+            doc_info and doc_info.status == ServiceStatus.HEALTHY):
             return self.document_processor
         return None
     
@@ -667,7 +666,7 @@ _service_factory: Optional[ServiceFactory] = None
 _service_factory_lock = threading.Lock()
 
 
-def get_service_factory(config: Optional[Dict[str, Any]] = None) -> ServiceFactory:
+def get_service_factory(config: Optional[Union[Dict[str, Any], Config]] = None) -> ServiceFactory:
     """Get the global service factory instance."""
     global _service_factory
     

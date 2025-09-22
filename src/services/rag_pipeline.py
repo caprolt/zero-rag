@@ -57,7 +57,7 @@ class RAGQuery:
     """RAG query container with enhanced prompt engineering support."""
     query: str
     top_k: int = 5
-    score_threshold: float = 0.7
+    score_threshold: float = 0.3
     max_context_length: int = 4000
     temperature: float = 0.7
     max_tokens: int = 1024

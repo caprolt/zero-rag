@@ -51,7 +51,8 @@ advanced_router = APIRouter(prefix="/advanced", tags=["Advanced Features"])
 # Dependency injection
 def get_service_factory() -> ServiceFactory:
     """Get the service factory instance."""
-    return ServiceFactory()
+    from ..services.service_factory import get_service_factory as get_global_service_factory
+    return get_global_service_factory()
 
 
 # Health Routes
@@ -394,7 +395,9 @@ async def query(
         # Format sources
         sources = []
         if response.sources:
-            for source in response.sources:
+            logger.info(f"Processing {len(response.sources)} sources for response")
+            for i, source in enumerate(response.sources):
+                logger.debug(f"Source {i}: file='{source.get('file', 'Unknown')}', score={source.get('score', 0.0)}, chunk_index={source.get('chunk_index', 0)}")
                 sources.append({
                     "filename": source.get("file", "Unknown"),
                     "chunk_index": source.get("chunk_index", 0),
