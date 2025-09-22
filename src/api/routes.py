@@ -352,10 +352,16 @@ async def delete_document(
 @query_router.post("/", response_model=QueryResponse)
 async def query(
     request: QueryRequest,
+    client_request: Request,
     service_factory: ServiceFactory = Depends(get_service_factory)
 ):
     """Process a query and return a response."""
     try:
+        # Check if streaming is requested
+        if getattr(request, 'stream', False):
+            # Redirect to streaming endpoint
+            return await query_stream(request, client_request, service_factory)
+            
         start_time = time.time()
         
         # Validate RAG pipeline availability
@@ -471,7 +477,7 @@ async def query_stream(
             filters=filters
         )
         
-        async def generate_stream() -> Generator[str, None, None]:
+        async def generate_stream():
             """Generate streaming response with connection management."""
             try:
                 # Update connection activity
@@ -483,8 +489,9 @@ async def query_stream(
                         # Update connection activity
                         await stream_manager.update_activity(connection_id)
                         
-                        # Send chunk
-                        yield f"data: {json.dumps(chunk)}\n\n"
+                        # Send chunk as text data (chunk is already a string)
+                        chunk_data = {"type": "content", "data": chunk}
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
                 
                 # Send end marker
                 yield f"data: {json.dumps({'type': 'end'})}\n\n"
@@ -493,6 +500,7 @@ async def query_stream(
                 await stream_manager.close_connection(connection_id)
                 
             except Exception as e:
+                logger.error(f"Stream generation error: {e}", exc_info=True)
                 error_data = {"type": "error", "message": str(e)}
                 yield f"data: {json.dumps(error_data)}\n\n"
                 

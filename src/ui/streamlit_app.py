@@ -17,7 +17,7 @@ import requests
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Generator
 import logging
 import threading
 from datetime import datetime, timedelta
@@ -397,15 +397,70 @@ def query_rag(question: str, stream: bool = False, document_ids: Optional[List[s
         if document_ids:
             data["document_ids"] = document_ids
         
+        # Increased timeout for 120B model - 5 minutes for non-streaming, 10 minutes for streaming
+        timeout = 600 if stream else 300
+        
         response = requests.post(
             f"{API_BASE_URL}/query",
             json=data,
-            timeout=60
+            timeout=timeout
         )
         return response.json()
     except requests.RequestException as e:
         logger.error(f"Query error: {e}")
         return {"error": str(e)}
+
+
+def query_rag_streaming(question: str, document_ids: Optional[List[str]] = None) -> Generator[str, None, None]:
+    """Send a streaming query to the RAG system."""
+    try:
+        data = {"query": question, "stream": True}
+        
+        # Add document filtering if specified
+        if document_ids:
+            data["document_ids"] = document_ids
+        
+        response = requests.post(
+            f"{API_BASE_URL}/query/stream",  # Use the dedicated streaming endpoint
+            json=data,
+            timeout=600,  # 10 minutes for streaming with 120B model
+            stream=True
+        )
+        
+        if response.status_code != 200:
+            yield f"Error: HTTP {response.status_code}"
+            return
+            
+        # Process Server-Sent Events streaming response
+        for line in response.iter_lines():
+            if line:
+                try:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data: '):
+                        data_str = line_str[6:]  # Remove 'data: ' prefix
+                        if data_str.strip() == '[DONE]':
+                            break
+                        
+                        # Parse JSON data
+                        try:
+                            chunk_data = json.loads(data_str)
+                            if chunk_data.get('type') == 'content':
+                                yield chunk_data.get('data', '')
+                            elif chunk_data.get('type') == 'end':
+                                break
+                            elif chunk_data.get('type') == 'error':
+                                yield f"Error: {chunk_data.get('message', 'Unknown error')}"
+                                break
+                        except json.JSONDecodeError:
+                            # If it's not JSON, treat as plain text
+                            yield data_str
+                            
+                except UnicodeDecodeError:
+                    continue
+                    
+    except requests.RequestException as e:
+        logger.error(f"Streaming query error: {e}")
+        yield f"Error: {str(e)}"
 
 def main():
     """Main Streamlit application."""
@@ -671,16 +726,32 @@ def main():
                         # Get selected document IDs for filtering
                         selected_doc_ids = list(st.session_state.selected_documents) if st.session_state.selected_documents else None
                         
-                        response = query_rag(query, document_ids=selected_doc_ids)
-                        
-                        if "error" in response:
-                            st.error(f"Query failed: {response['error']}")
-                        else:
-                            st.session_state.chat_history.append({
-                                "role": "assistant",
-                                "content": response.get("answer", "No answer generated"),
-                                "sources": response.get("sources", [])
-                            })
+                        # Show thinking indicator and stream response
+                        with st.spinner("🧠 Thinking..."):
+                            # Create placeholder for streaming response
+                            response_placeholder = st.empty()
+                            response_text = ""
+                            
+                            try:
+                                # Use streaming for better UX with 120B model
+                                for chunk in query_rag_streaming(query, document_ids=selected_doc_ids):
+                                    if chunk.startswith("Error:"):
+                                        st.error(f"Query failed: {chunk}")
+                                        break
+                                    response_text += chunk
+                                    response_placeholder.markdown(f"**Assistant:** {response_text}▊")
+                                
+                                # Final response without cursor
+                                if response_text and not response_text.startswith("Error:"):
+                                    response_placeholder.markdown(f"**Assistant:** {response_text}")
+                                    st.session_state.chat_history.append({
+                                        "role": "assistant", 
+                                        "content": response_text,
+                                        "sources": []  # TODO: Include sources from streaming response
+                                    })
+                                    
+                            except Exception as e:
+                                st.error(f"Query failed: {str(e)}")
                         
                         st.rerun()
         

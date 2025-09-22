@@ -53,15 +53,9 @@ class AIModelConfig(BaseSettings):
     # Ollama Configuration
     ollama_host: str = Field(default="http://localhost:11434", env="OLLAMA_HOST")
     ollama_model: str = Field(default="llama3.2:1b", env="OLLAMA_MODEL")
-    ollama_timeout: int = Field(default=30, env="OLLAMA_TIMEOUT")
+    ollama_timeout: int = Field(default=120, env="OLLAMA_TIMEOUT")
     ollama_max_tokens: int = Field(default=2048, env="OLLAMA_MAX_TOKENS")
-    ollama_temperature: float = Field(default=0.7, env="OLLAMA_TEMPERATURE")
-    
-    # HuggingFace Fallback Configuration
-    hf_model_name: str = Field(default="microsoft/DialoGPT-small", env="HF_MODEL_NAME")
-    hf_model_file: str = Field(default="llama-3.2-1b-chat.Q4_K_M.gguf", env="HF_MODEL_FILE")
-    hf_device: str = Field(default="cpu", env="HF_DEVICE")
-    hf_max_length: int = Field(default=2048, env="HF_MAX_LENGTH")
+    ollama_temperature: float = Field(default=0.3, env="OLLAMA_TEMPERATURE")
     
     # Embedding Model Configuration
     embedding_model_name: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", env="EMBEDDING_MODEL_NAME")

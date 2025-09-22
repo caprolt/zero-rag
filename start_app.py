@@ -3,7 +3,8 @@
 ZeroRAG Application Starter
 
 This script starts both the FastAPI backend server and the Streamlit frontend
-to ensure they work together properly.
+to ensure they work together properly. It also restarts Ollama to ensure
+fresh LLM service initialization.
 
 Usage:
     python start_app.py
@@ -15,7 +16,134 @@ import time
 import threading
 import signal
 import os
+import platform
 from pathlib import Path
+
+def restart_ollama():
+    """Restart Ollama service to ensure it's running and fresh."""
+    print("🔄 Restarting Ollama...")
+    
+    try:
+        system = platform.system().lower()
+        
+        if system == "windows":
+            # On Windows, try to stop and start Ollama service
+            try:
+                # Try to stop Ollama if it's running
+                print("⏹️  Stopping Ollama service...")
+                subprocess.run(["taskkill", "/F", "/IM", "ollama.exe"], 
+                             capture_output=True, check=False)
+                time.sleep(2)
+            except Exception as e:
+                print(f"   Note: Could not stop Ollama process: {e}")
+            
+            try:
+                # Start Ollama service
+                print("▶️  Starting Ollama service...")
+                # Try different common Ollama installation paths
+                ollama_paths = [
+                    "ollama",  # If in PATH
+                    r"C:\Users\%USERNAME%\AppData\Local\Programs\Ollama\ollama.exe",
+                    r"C:\Program Files\Ollama\ollama.exe",
+                    r"C:\Program Files (x86)\Ollama\ollama.exe"
+                ]
+                
+                ollama_started = False
+                for ollama_path in ollama_paths:
+                    try:
+                        # Expand environment variables
+                        expanded_path = os.path.expandvars(ollama_path)
+                        if ollama_path == "ollama" or os.path.exists(expanded_path):
+                            subprocess.Popen([expanded_path, "serve"], 
+                                           creationflags=subprocess.CREATE_NO_WINDOW)
+                            ollama_started = True
+                            print(f"✅ Ollama started using: {ollama_path}")
+                            break
+                    except Exception as e:
+                        continue
+                
+                if not ollama_started:
+                    print("⚠️  Could not start Ollama automatically. Please ensure Ollama is installed and running.")
+                    print("   You can start it manually by running 'ollama serve' in a terminal.")
+                    return False
+            except Exception as e:
+                print(f"⚠️  Error starting Ollama: {e}")
+                return False
+                        
+        else:
+            # On Linux/macOS, try to restart Ollama
+            try:
+                print("⏹️  Stopping Ollama...")
+                subprocess.run(["pkill", "-f", "ollama"], capture_output=True, check=False)
+                time.sleep(2)
+            except Exception:
+                pass
+            
+            try:
+                print("▶️  Starting Ollama...")
+                subprocess.Popen(["ollama", "serve"], 
+                               stdout=subprocess.DEVNULL, 
+                               stderr=subprocess.DEVNULL)
+                print("✅ Ollama service started")
+            except Exception as e:
+                print(f"⚠️  Could not start Ollama: {e}")
+                return False
+        
+        # Wait for Ollama to be ready
+        print("⏳ Waiting for Ollama to be ready...")
+        max_wait = 30
+        wait_time = 0
+        
+        while wait_time < max_wait:
+            if check_ollama_health():
+                print("✅ Ollama is ready!")
+                return True
+            time.sleep(1)
+            wait_time += 1
+            if wait_time % 5 == 0:
+                print(f"   Still waiting... ({wait_time}/{max_wait}s)")
+        
+        print("⚠️  Ollama did not become ready within 30 seconds")
+        return False
+        
+    except Exception as e:
+        print(f"❌ Error restarting Ollama: {e}")
+        return False
+
+def check_ollama_health():
+    """Check if Ollama is running and accessible."""
+    try:
+        import requests
+        response = requests.get("http://localhost:11434/api/tags", timeout=3)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def restart_llm_service():
+    """Restart the LLM service to detect Ollama after restart."""
+    print("🔄 Restarting LLM service to detect Ollama...")
+    
+    try:
+        # Run the restart script we created earlier
+        restart_script = Path(__file__).parent / "restart_llm_service.py"
+        if restart_script.exists():
+            result = subprocess.run([
+                sys.executable, str(restart_script)
+            ], capture_output=True, text=True, cwd=Path(__file__).parent)
+            
+            if result.returncode == 0:
+                print("✅ LLM service restarted successfully!")
+                return True
+            else:
+                print(f"⚠️  LLM service restart had issues: {result.stderr}")
+                return False
+        else:
+            print("⚠️  LLM restart script not found, skipping...")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Error restarting LLM service: {e}")
+        return False
 
 def start_api_server():
     """Start the FastAPI server in a separate process."""
@@ -62,7 +190,21 @@ def main():
     print("🤖 Starting ZeroRAG Application...")
     print("=" * 50)
     
-    # Start API server
+    # Step 1: Restart Ollama to ensure fresh start
+    ollama_success = restart_ollama()
+    if not ollama_success:
+        print("⚠️  Ollama restart failed, but continuing anyway...")
+        print("   The application may fall back to HuggingFace models.")
+    
+    # Step 2: Restart LLM service to detect Ollama
+    if ollama_success:
+        llm_restart_success = restart_llm_service()
+        if not llm_restart_success:
+            print("⚠️  LLM service restart failed, but continuing anyway...")
+    
+    print("=" * 50)
+    
+    # Step 3: Start API server
     api_process = start_api_server()
     
     # Wait for API server to be ready

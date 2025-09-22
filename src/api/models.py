@@ -175,6 +175,11 @@ class QueryRequest(BaseModel):
         description="List of specific document IDs to search within. If None, searches all documents.",
         example=["doc_123", "doc_456"]
     )
+    stream: bool = Field(
+        default=False,
+        description="Enable streaming response for real-time output",
+        example=False
+    )
 
     class Config:
         json_schema_extra = {

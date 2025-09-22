@@ -817,11 +817,16 @@ class RAGPipeline:
         try:
             # Create prompt
             prompt = self.prompt_engine.create_prompt(rag_query, context)
+            logger.info(f"Generated prompt length: {len(prompt)} characters")
+            logger.debug(f"Prompt preview: {prompt[:500]}...")
             
             # Get LLM service
             llm_service = self._get_service_factory().get_llm_service()
             if not llm_service:
+                logger.error("LLM service not available")
                 raise RuntimeError("LLM service not available")
+            
+            logger.info(f"LLM service available, generating response...")
             
             # Generate response
             response = llm_service.generate(
@@ -829,6 +834,10 @@ class RAGPipeline:
                 temperature=rag_query.temperature,
                 max_tokens=rag_query.max_tokens
             )
+            
+            logger.info(f"LLM response received: {len(response.text) if response.text else 0} characters")
+            logger.info(f"LLM response preview: {response.text[:200] if response.text else 'NO TEXT'}...")
+            logger.info(f"LLM response error: {response.error}")
             
             return response
             

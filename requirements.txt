@@ -8,8 +8,6 @@ pydantic-settings==2.4.0
 streamlit==1.48.0
 
 # AI/ML Core Libraries
-torch==2.8.0
-transformers==4.55.0
 sentence-transformers==5.1.0
 
 # Vector Database
@@ -23,10 +21,8 @@ numpy==2.3.2
 python-multipart==0.0.19
 aiofiles==24.1.0
 
-# Optional Dependencies
-# For GPU support (uncomment if needed):
-# torch==2.8.0+cu121  # CUDA 12.1 support
-# sentence-transformers[onnx-gpu]==5.1.0  # ONNX GPU backend
+# HTTP Requests
+requests==2.32.3
 
 # Development & Testing (optional)
 pytest==8.3.2
