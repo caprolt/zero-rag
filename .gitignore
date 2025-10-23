@@ -167,6 +167,12 @@ cython_debug/
 # Project specific
 data/documents/*
 !data/documents/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
 
 # Model files and caches
 models/
@@ -197,6 +203,13 @@ Thumbs.db
 *~
 
 # Environment variables
+.env
 .env.local
 .env.production
 .env.staging
+
+# Development and testing artifacts
+debug_*.py
+test_*.py
+inspect_*.py
+load_documents.py

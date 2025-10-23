@@ -11,6 +11,17 @@
 
 ZeroRAG is a cost-effective, production-ready RAG system designed to provide intelligent document search and question-answering capabilities using entirely free and open-source components. Built with a focus on simplicity, performance, and zero ongoing costs.
 
+> 📸 **Screenshots**: See the application in action in the [`screenshots/`](screenshots/) folder (screenshots to be added).
+
+### 🏆 Project Highlights
+
+This project demonstrates:
+- **Full-Stack Development**: Backend API (FastAPI), Frontend UI (Streamlit), Vector Database (Qdrant), Caching (Redis)
+- **AI/ML Integration**: Sentence transformers for embeddings, LLM integration for text generation
+- **Production Architecture**: Docker containerization, health monitoring, error handling, logging
+- **Modern DevOps**: CI/CD ready, cloud deployment support, infrastructure as code
+- **Clean Code Practices**: Type hints, comprehensive testing, documentation, modular design
+
 ### Key Features
 
 - 🔍 **Intelligent Document Search**: Upload and search through documents with semantic understanding
@@ -88,7 +99,7 @@ The system uses the following pre-trained models that will be downloaded automat
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/zero-rag.git
+   git clone https://github.com/caprolt/zero-rag.git
    cd zero-rag
    ```
 
@@ -408,11 +419,7 @@ The system is designed to be deployed on any cloud platform:
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request.
 
 ## 📝 License
 
@@ -428,9 +435,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/zero-rag/issues)
-- **Documentation**: [Project Wiki](https://github.com/yourusername/zero-rag/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/zero-rag/discussions)
+- **Issues**: [GitHub Issues](https://github.com/caprolt/zero-rag/issues)
+- **Documentation**: [Project Wiki](https://github.com/caprolt/zero-rag/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/caprolt/zero-rag/discussions)
 
 ---
 
